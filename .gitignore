@@ -1,0 +1,12 @@
+*.pyc
+*checkpoints*
+*.pth
+trained_models
+*.bash_history
+*.local/
+*.cache/
+*.ipython
+*.jupyter
+*.nv
+*.ssh/
+data
