@@ -1,0 +1,3 @@
+[submodule "pytorch-dense-correspondence"]
+	path = pytorch-dense-correspondence
+	url = git@github.com:peteflorence/pytorch-dense-correspondence.git
