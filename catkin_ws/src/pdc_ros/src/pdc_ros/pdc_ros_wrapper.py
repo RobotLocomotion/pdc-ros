@@ -84,8 +84,9 @@ class PDCRos(object):
 
     def compute_best_match_from_rgbd_list(self, rgbd_with_pose_list):
 
-        best_index = 0
-        best_match_norm_diff = 1e9
+        best_index = None    # if best_index remains None, this is flag for none found
+        best_index_match_uv = None
+        threshold_norm_diff = 0.1
 
         for i in range(len(rgbd_with_pose_list)):
 
@@ -95,21 +96,41 @@ class PDCRos(object):
             cv2.waitKey(1000)
             cv2.destroyAllWindows()
 
-            best_match = self.find_best_match_for_single_rgb(rgb_image_numpy, i)
+            best_match_uv, best_match_diff = self.find_best_match_for_single_rgb(rgb_image_numpy, i)
 
-            depth_image_ros = rgbd_with_pose_list[i].depth_image
-            depth_image_numpy_uint16 = self.depth_image_to_numpy_uint16(depth_image_ros)
+
+            if best_match_diff < threshold_norm_diff:
+                threshold_norm_diff = best_match_diff
+                best_index = i
+                best_index_match_uv = best_match_uv
+
+            #depth_image_ros = rgbd_with_pose_list[i].depth_image
+            #depth_image_numpy_uint16 = self.depth_image_to_numpy_uint16(depth_image_ros)
 
             print type(rgb_image_numpy), "is rgb type"
-            print type(depth_image_numpy_uint16), "is depth image type"
-            print np.max(depth_image_numpy_uint16), "is max of depth image"
+            #print type(depth_image_numpy_uint16), "is depth image type"
+            #print np.max(depth_image_numpy_uint16), "is max of depth image"
 
-        time.sleep(3)
+        if best_index is None:
+            print "I didnt find any matches below threshold of:"
+            print threshold_norm_diff
+        else:
+            print "My best match was from img index", best_index
+            print "The norm diff was", threshold_norm_diff
+            print "At pixel (u,v):", best_index_match_uv
+            print "Showing again"
+            rgb_image_ros = rgbd_with_pose_list[best_index].rgb_image
+            rgb_image_numpy = self.convert_ros_to_numpy(rgb_image_ros)
+            cv2_img = rgb_image_numpy[:,:,::-1].copy()
+            self.draw_best_match(cv2_img, best_index_match_uv[0], best_index_match_uv[1])
+            cv2.imshow('img_rgb_best_match_labeled', cv2_img)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
 
         return True, [0,0,0]
 
 
-    def find_best_match_for_single_rgb(self, rgb_image_numpy, iter):
+    def find_best_match_for_single_rgb(self, rgb_image_numpy, img_num):
         """
         :param rgb_image_numpy: should be R, G, B [H,W,3]
         """
@@ -121,12 +142,37 @@ class PDCRos(object):
 
         # these are Variables holding torch.FloatTensors, first grab the data, then convert to numpy
         res = self.dcn.forward_single_image_tensor(rgb_tensor).data.cpu().numpy()
-
-        cv2.imshow('img_res_'+str(iter), res[:,:,::-1].copy())
+        cv2.imshow('img_res_'+str(img_num), res[:,:,::-1].copy())
         cv2.waitKey(1000)
         cv2.destroyAllWindows()
 
-        return None
+
+        #caterpillar_tail = np.asarray([1.2344482, 0.07725803, -0.703982])
+        caterpillar_yunzhu_click = np.asarray([ 1.7379729, 1.4500326, -0.02878012])
+
+        best_match_uv, best_match_diff, norm_diffs = self.dcn.find_best_match(None, None, res, descriptor=caterpillar_yunzhu_click)
+
+        print best_match_diff
+
+        cv2_img = rgb_image_numpy[:,:,::-1].copy()
+        self.draw_best_match(cv2_img, best_match_uv[0], best_match_uv[1])
+        cv2.imshow('img_rgb_labeled'+str(img_num), cv2_img)
+        cv2.waitKey(1000)
+        cv2.destroyAllWindows()
+    
+        return best_match_uv, best_match_diff
+
+    def draw_best_match(self, img, x, y):
+        white = (255,255,255)
+        black = (0,0,0)
+        label_color = (0,255,0)
+        cv2.circle(img,(x,y),10,label_color,1)
+        cv2.circle(img,(x,y),11,white,1)
+        cv2.circle(img,(x,y),12,label_color,1)
+        cv2.line(img,(x,y+1),(x,y+3),white,1)
+        cv2.line(img,(x+1,y),(x+3,y),white,1)
+        cv2.line(img,(x,y-1),(x,y-3),white,1)
+        cv2.line(img,(x-1,y),(x-3,y),white,1)
 
 
     def depth_image_to_numpy_uint16(self, depth_image_msg, bridge=None):
