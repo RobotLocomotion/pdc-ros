@@ -31,7 +31,7 @@ if __name__=="__main__":
 			--build-arg USER_ID=%(user_id)s \
 			--build-arg USER_GID=%(group_id)s" \
 			%{'user_name': user_name, 'password': args.password, 'user_id': args.user_id, 'group_id': args.group_id}
-	cmd += " -t %s -f pytorch-dense-correspondence.dockerfile ." % args.image
+	cmd += " -t %s -f pdc-ros.dockerfile ." % args.image
 	
 
 	print("command = \n \n", cmd)

@@ -36,10 +36,13 @@ RUN yes "Y" | /tmp/install_director_deps.sh
 COPY ./visdom_download_scripts.sh /tmp/visdom_download_scripts.sh
 RUN yes "Y" | /tmp/visdom_download_scripts.sh
 
-# set the terminator inside the docker container to be a different color
+# set the terminator inside the docker container to be a different colors
 RUN mkdir -p .config/terminator
-COPY ./terminator_config .config/terminator/config
+
+COPY ./terminator_config_new  /home/$USER_NAME/.config/terminator/config
+
 RUN chown $USER_NAME:$USER_NAME -R .config
+
 
 # change ownership of everything to our user
 RUN cd $WORKDIR && chown $USER_NAME:$USER_NAME -R .

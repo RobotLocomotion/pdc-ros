@@ -13,3 +13,6 @@ iiwa-2:
 iiwa-workstation:
   peteflo:
     path_to_data_directory: '/home/peteflo/data/spartan'
+
+  manuelli:
+    path_to_data_directory: '/data'
