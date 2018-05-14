@@ -74,32 +74,54 @@ class PDCRos(object):
 
         print "finding best match for, ", len(goal.rgbd_with_pose_list), " rgbd frames"
 
-        match_found, best_match = self.compute_best_match_from_rgbd_list(goal.rgbd_with_pose_list)
+        camera_matrix = PDCRos.camera_matrix_from_camera_info_msg(goal.camera_info)
+        match_found, best_match_location = self.compute_best_match_from_rgbd_list(goal.rgbd_with_pose_list, camera_matrix)
 
 
         result = pdc_ros_msgs.msg.FindBestMatchResult()
         result.match_found = match_found
+
+        result.best_match_location.x = best_match_location[0]
+        result.best_match_location.y = best_match_location[1]
+        result.best_match_location.z = best_match_location[2]
+
         self._find_best_match_action_server.set_succeeded(result)
 
 
-    def compute_best_match_from_rgbd_list(self, rgbd_with_pose_list):
+    def compute_best_match_from_rgbd_list(self, rgbd_with_pose_list, camera_matrix):
 
         best_index = None    # if best_index remains None, this is flag for none found
         best_index_match_uv = None
         threshold_norm_diff = 0.1
 
+        def rescale_depth_image(img):
+            max_range = 2000.0
+            scaled_img = np.clip(img, 0, max_range)
+            return scaled_img/max_range
+
         for i in range(len(rgbd_with_pose_list)):
 
             rgb_image_ros = rgbd_with_pose_list[i].rgb_image
+            depth_image_ros = rgbd_with_pose_list[i].depth_image
             rgb_image_numpy = self.convert_ros_to_numpy(rgb_image_ros)
+            depth_image_numpy = self.depth_image_to_numpy_uint16(depth_image_ros)
+
             cv2.imshow('img_rgb_'+str(i), rgb_image_numpy[:,:,::-1].copy())
             cv2.waitKey(1000)
+
             cv2.destroyAllWindows()
 
             best_match_uv, best_match_diff = self.find_best_match_for_single_rgb(rgb_image_numpy, i)
 
+            depth_is_valid, depth = self.get_depth_value_of_best_match(depth_image_numpy, best_match_uv)
 
-            if best_match_diff < threshold_norm_diff:
+
+            depth_img_rescaled = rescale_depth_image(depth_image_numpy)
+            self.draw_best_match(depth_img_rescaled, best_match_uv[0], best_match_uv[1])
+            cv2.imshow('depth_' + str(i), depth_img_rescaled)
+            cv2.waitKey(1000)
+
+            if (best_match_diff < threshold_norm_diff) and depth_is_valid:
                 threshold_norm_diff = best_match_diff
                 best_index = i
                 best_index_match_uv = best_match_uv
@@ -119,15 +141,84 @@ class PDCRos(object):
             print "The norm diff was", threshold_norm_diff
             print "At pixel (u,v):", best_index_match_uv
             print "Showing again"
+
+            best_match_uv = (best_index_match_uv[0], best_index_match_uv[1])
+            rgbd_pose = rgbd_with_pose_list[best_index]
             rgb_image_ros = rgbd_with_pose_list[best_index].rgb_image
             rgb_image_numpy = self.convert_ros_to_numpy(rgb_image_ros)
+
+            depth_image_ros = rgbd_with_pose_list[best_index].depth_image
+            depth_image_numpy = self.depth_image_to_numpy_uint16(depth_image_ros)
+
             cv2_img = rgb_image_numpy[:,:,::-1].copy()
             self.draw_best_match(cv2_img, best_index_match_uv[0], best_index_match_uv[1])
             cv2.imshow('img_rgb_best_match_labeled', cv2_img)
-            cv2.waitKey(0)
+
+            depth_img_rescaled = rescale_depth_image(depth_image_numpy)
+            self.draw_best_match(depth_img_rescaled, best_index_match_uv[0], best_index_match_uv[1])
+            cv2.imshow('depth_best_match' + str(i), depth_img_rescaled)
+
+
+            camera_pose = rgbd_pose.camera_pose
+            best_match_location = self.compute_3D_location_of_best_match(camera_pose, camera_matrix, depth_image_numpy, best_match_uv)
+
+            print "best match location:", best_match_location
+            print "Depth Value at best match", depth_image_numpy[best_match_uv[1], best_match_uv[0]]
+
+            while (1):
+                k = cv2.waitKey(33)
+                if k == 27:  # Esc key to stop
+                    break
+                elif k == -1:  # normally -1 returned,so don't print it
+                    continue
+                else:
+                    print k  # else print its value
+
             cv2.destroyAllWindows()
 
-        return True, [0,0,0]
+
+
+        return True, best_match_location
+
+    def get_depth_value_of_best_match(self, depth_image, best_match_uv):
+        """
+        Computes the depth value of the best match
+        :param depth_image:
+        :param best_match_uv:
+        :return:
+        """
+
+        MAX_RANGE = 1500
+        depth = depth_image[best_match_uv[1], best_match_uv[0]]
+        print "depth:", depth
+        if depth == 0 or depth > MAX_RANGE:
+            print "depth INVALID"
+            return False, depth
+
+        print "depth VALID"
+        return True, depth
+
+    def compute_3D_location_of_best_match(self, camera_pose, camera_intrinsics_matrix, depth_image, best_match_uv):
+        """
+
+        :param camera_pose:
+        :type : geometry_msgs/TransformStamped
+        :param depth_image:
+        :type : numpy image
+        :param best_match_uv: tuple (u,v)
+        :return:
+        """
+        DCE = DenseCorrespondenceEvaluation
+
+        _, depth_mm = self.get_depth_value_of_best_match(depth_image, best_match_uv)
+        depth = depth_mm/1000.0
+
+        # 4 x 4 numpy array
+        camera_to_world = PDCRos.homogeneous_transform_from_pose_stamped_msg(camera_pose.transform)
+
+        pos = DCE.compute_3d_position(best_match_uv, depth, camera_intrinsics_matrix, camera_to_world)
+        return pos
+
 
 
     def find_best_match_for_single_rgb(self, rgb_image_numpy, img_num):
@@ -147,10 +238,8 @@ class PDCRos(object):
         cv2.destroyAllWindows()
 
 
-        #caterpillar_tail = np.asarray([1.2344482, 0.07725803, -0.703982])
-        caterpillar_yunzhu_click = np.asarray([ 1.7379729, 1.4500326, -0.02878012])
-
-        best_match_uv, best_match_diff, norm_diffs = self.dcn.find_best_match(None, None, res, descriptor=caterpillar_yunzhu_click)
+        descriptor_target = np.asarray([1.2344482, 0.07725803, -0.703982]) # caterpillar tail
+        best_match_uv, best_match_diff, norm_diffs = self.dcn.find_best_match(None, None, res, descriptor=descriptor_target)
 
         print best_match_diff
 
@@ -201,3 +290,42 @@ class PDCRos(object):
 
 
 
+    @staticmethod
+    def camera_matrix_from_camera_info_msg(msg):
+        """
+        Extracts the camera matrix from a sensor_msgs/CameraInfo ROS message
+        :param msg:
+        :return: np.array((3,3))
+        """
+        fx = msg.K[0]
+        cx = msg.K[2]
+
+        fy = msg.K[4]
+        cy = msg.K[5]
+
+        return np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+
+    @staticmethod
+    def homogeneous_transform_from_pose_stamped_msg(msg):
+        """
+        Computes 4 x 4 homogeneous transform matrix from a geometry_msgs/Transform
+        :param msg:
+        :return:
+        """
+
+        d = dict()
+        pos = msg.translation
+        d['translation'] = dict()
+        d['translation']['x'] = pos.x
+        d['translation']['y'] = pos.y
+        d['translation']['z'] = pos.z
+
+        quat = msg.rotation
+        d['quaternion'] = dict()
+        d['quaternion']['w'] = quat.w
+        d['quaternion']['x'] = quat.x
+        d['quaternion']['y'] = quat.y
+        d['quaternion']['z'] = quat.z
+
+
+        return pdc_utils.homogenous_transform_from_dict(d)
