@@ -45,7 +45,7 @@ class PDCRos(object):
         pdc_utils.set_cuda_visible_devices([0])
         dce = DenseCorrespondenceEvaluation(config)
 
-        network_name = "caterpillar_standard_params_3"
+        network_name = "caterpillar_M_background_0.500_6"
         self.dcn = dce.load_network_from_config(network_name)
         self.dataset = self.dcn.load_training_dataset()
         print "finished loading dcn"
@@ -81,9 +81,10 @@ class PDCRos(object):
         result = pdc_ros_msgs.msg.FindBestMatchResult()
         result.match_found = match_found
 
-        result.best_match_location.x = best_match_location[0]
-        result.best_match_location.y = best_match_location[1]
-        result.best_match_location.z = best_match_location[2]
+        if result.match_found:
+            result.best_match_location.x = best_match_location[0]
+            result.best_match_location.y = best_match_location[1]
+            result.best_match_location.z = best_match_location[2]
 
         self._find_best_match_action_server.set_succeeded(result)
 
@@ -92,7 +93,7 @@ class PDCRos(object):
 
         best_index = None    # if best_index remains None, this is flag for none found
         best_index_match_uv = None
-        threshold_norm_diff = 0.1
+        threshold_norm_diff = 0.15
 
         def rescale_depth_image(img):
             max_range = 2000.0
@@ -136,6 +137,7 @@ class PDCRos(object):
         if best_index is None:
             print "I didnt find any matches below threshold of:"
             print threshold_norm_diff
+            return False, None
         else:
             print "My best match was from img index", best_index
             print "The norm diff was", threshold_norm_diff
@@ -189,14 +191,32 @@ class PDCRos(object):
         """
 
         MAX_RANGE = 1500
-        depth = depth_image[best_match_uv[1], best_match_uv[0]]
-        print "depth:", depth
-        if depth == 0 or depth > MAX_RANGE:
+        u = best_match_uv[0]
+        v = best_match_uv[1]
+        image_height = depth_image.shape[0]
+        image_width = depth_image.shape[1]
+
+        depth_actual = depth_image[best_match_uv[1], best_match_uv[0]]
+
+        box_size = 11
+        u_min = max(u - box_size/2, 0)
+        v_min = max(v - box_size/2, 0)
+
+        u_max = min(u + box_size/2, image_width-1)
+        v_max = min(v + box_size/2, image_height-1)
+
+        depth_cropped = depth_image[v_min:(v_max+1), u_min:(u_max+1)]
+        depth_min = np.min(depth_cropped[depth_cropped > 0])
+
+        print "depth_actual:", depth_actual
+        print "depth_min:", depth_min
+
+        if depth_min == 0 or depth_min > MAX_RANGE:
             print "depth INVALID"
-            return False, depth
+            return False, depth_min
 
         print "depth VALID"
-        return True, depth
+        return True, depth_min
 
     def compute_3D_location_of_best_match(self, camera_pose, camera_intrinsics_matrix, depth_image, best_match_uv):
         """
@@ -233,12 +253,16 @@ class PDCRos(object):
 
         # these are Variables holding torch.FloatTensors, first grab the data, then convert to numpy
         res = self.dcn.forward_single_image_tensor(rgb_tensor).data.cpu().numpy()
-        cv2.imshow('img_res_'+str(img_num), res[:,:,::-1].copy())
+        res_vis = res[:,:,::-1].copy()
+        res_vis = res_vis[:,:,:4]
+        cv2.imshow('img_res_'+str(img_num), res_vis)
         cv2.waitKey(1000)
         cv2.destroyAllWindows()
 
 
-        descriptor_target = np.asarray([1.2344482, 0.07725803, -0.703982]) # caterpillar tail
+        #descriptor_target = np.asarray([1.2344482, 0.07725803, -0.703982]) # caterpillar tail
+        descriptor_target = self.get_descriptor_target_from_yaml()
+
         best_match_uv, best_match_diff, norm_diffs = self.dcn.find_best_match(None, None, res, descriptor=descriptor_target)
 
         print best_match_diff
@@ -250,6 +274,15 @@ class PDCRos(object):
         cv2.destroyAllWindows()
     
         return best_match_uv, best_match_diff
+
+    def get_descriptor_target_from_yaml(self):
+        """
+        Grabs a 1-dimensional numpy array of length D from the descriptor yaml file
+        """
+        descriptor_filename = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), "../config", "new_descriptor_picked.yaml")
+        descriptor_dict = pdc_utils.getDictFromYamlFilename(descriptor_filename)
+        descriptor_list = descriptor_dict["descriptor"]
+        return np.asarray(descriptor_list)
 
     def draw_best_match(self, img, x, y):
         white = (255,255,255)
