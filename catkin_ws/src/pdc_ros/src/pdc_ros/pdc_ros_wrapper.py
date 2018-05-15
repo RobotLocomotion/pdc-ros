@@ -30,7 +30,7 @@ class PDCRos(object):
     def __init__(self):
         self.bridge = None
         self.load_dcn_network()
-        self.debug_visualize = False
+        self.debug_visualize = True
         self.best_match_visualize = True
         pass
 
@@ -95,7 +95,7 @@ class PDCRos(object):
 
         best_index = None    # if best_index remains None, this is flag for none found
         best_index_match_uv = None
-        threshold_norm_diff = 0.15
+        threshold_norm_diff = 0.30
 
         def rescale_depth_image(img):
             max_range = 2000.0
@@ -109,20 +109,22 @@ class PDCRos(object):
             rgb_image_numpy = self.convert_ros_to_numpy(rgb_image_ros)
             depth_image_numpy = self.depth_image_to_numpy_uint16(depth_image_ros)
 
-            if self.debug_visualize:
-                cv2.imshow('img_rgb_'+str(i), rgb_image_numpy[:,:,::-1].copy())
-                cv2.waitKey(1000)
-                cv2.destroyAllWindows()
+            # if self.debug_visualize:
+            #     cv2.imshow('img_rgb_'+str(i), rgb_image_numpy[:,:,::-1].copy())
+            #     cv2.moveWindow('img_rgb_'+str(i), 0, 0)
+            #     cv2.moveWindow('img_rgb_'+str(i), 350, 0+i*320)
 
             best_match_uv, best_match_diff = self.find_best_match_for_single_rgb(rgb_image_numpy, i)
 
             depth_is_valid, depth = self.get_depth_value_of_best_match(depth_image_numpy, best_match_uv)
 
-            if self.debug_visualize:
-                depth_img_rescaled = rescale_depth_image(depth_image_numpy)
-                self.draw_best_match(depth_img_rescaled, best_match_uv[0], best_match_uv[1])
-                cv2.imshow('depth_' + str(i), depth_img_rescaled)
-                cv2.waitKey(1000)
+            # if self.debug_visualize:
+            #     depth_img_rescaled = rescale_depth_image(depth_image_numpy)
+            #     self.draw_best_match(depth_img_rescaled, best_match_uv[0], best_match_uv[1])
+            #     cv2.imshow('depth_' + str(i), depth_img_rescaled)
+            #     cv2.moveWindow('depth_' + str(i), 0, 0)
+            #     cv2.moveWindow('depth_' + str(i), 350, 580)
+            #     cv2.waitKey(1000)
 
             if (best_match_diff < threshold_norm_diff) and depth_is_valid:
                 threshold_norm_diff = best_match_diff
@@ -154,14 +156,14 @@ class PDCRos(object):
             depth_image_ros = rgbd_with_pose_list[best_index].depth_image
             depth_image_numpy = self.depth_image_to_numpy_uint16(depth_image_ros)
 
-            if self.best_match_visualize:
-                cv2_img = rgb_image_numpy[:,:,::-1].copy()
-                self.draw_best_match(cv2_img, best_index_match_uv[0], best_index_match_uv[1])
-                cv2.imshow('img_rgb_best_match_labeled', cv2_img)
+            # if self.best_match_visualize:
+            #     cv2_img = rgb_image_numpy[:,:,::-1].copy()
+            #     self.draw_best_match(cv2_img, best_index_match_uv[0], best_index_match_uv[1])
+            #     cv2.imshow('img_rgb_best_match_labeled', cv2_img)
 
-                depth_img_rescaled = rescale_depth_image(depth_image_numpy)
-                self.draw_best_match(depth_img_rescaled, best_index_match_uv[0], best_index_match_uv[1])
-                cv2.imshow('depth_best_match' + str(i), depth_img_rescaled)
+            #     depth_img_rescaled = rescale_depth_image(depth_image_numpy)
+            #     self.draw_best_match(depth_img_rescaled, best_index_match_uv[0], best_index_match_uv[1])
+            #     cv2.imshow('depth_best_match' + str(i), depth_img_rescaled)
 
             camera_pose = rgbd_pose.camera_pose
             best_match_location = self.compute_3D_location_of_best_match(camera_pose, camera_matrix, depth_image_numpy, best_match_uv)
@@ -171,17 +173,17 @@ class PDCRos(object):
 
             
 
-            if self.debug_visualize:
-                while (1):
-                k = cv2.waitKey(33)
-                if k == 27:  # Esc key to stop
-                    break
-                elif k == -1:  # normally -1 returned,so don't print it
-                    continue
-                else:
-                    print k  # else print its value
-                    
-                cv2.destroyAllWindows()
+            # if self.debug_visualize:
+            #     while (1):
+            #         k = cv2.waitKey(33)
+            #         if k == 27:  # Esc key to stop
+            #             break
+            #         elif k == -1:  # normally -1 returned,so don't print it
+            #             continue
+            #         else:
+            #             print k  # else print its value
+
+            #     cv2.destroyAllWindows()
 
 
 
@@ -211,6 +213,11 @@ class PDCRos(object):
         v_max = min(v + box_size/2, image_height-1)
 
         depth_cropped = depth_image[v_min:(v_max+1), u_min:(u_max+1)]
+
+        if not (depth_cropped > 0).any():
+            print "Nothing in depth cropped"
+            return False, None
+
         depth_min = np.min(depth_cropped[depth_cropped > 0])
 
         print "depth_actual:", depth_actual
@@ -258,12 +265,12 @@ class PDCRos(object):
 
         # these are Variables holding torch.FloatTensors, first grab the data, then convert to numpy
         res = self.dcn.forward_single_image_tensor(rgb_tensor).data.cpu().numpy()
-        if self.debug_visualize:
-            res_vis = res[:,:,::-1].copy()
-            res_vis = res_vis[:,:,:4]
-            cv2.imshow('img_res_'+str(img_num), res_vis)
-            cv2.waitKey(1000)
-            cv2.destroyAllWindows()
+        # if self.debug_visualize:
+        #     res_vis = res[:,:,::-1].copy()
+        #     res_vis = res_vis[:,:,:4]
+        #     cv2.imshow('img_res_'+str(img_num), res_vis)
+        #     cv2.moveWindow('img_res_'+str(img_num), 0, 0)
+        #     cv2.moveWindow('img_res_'+str(img_num), 0, 580)
 
         #descriptor_target = np.asarray([1.2344482, 0.07725803, -0.703982]) # caterpillar tail
         descriptor_target = self.get_descriptor_target_from_yaml()
@@ -276,8 +283,9 @@ class PDCRos(object):
             cv2_img = rgb_image_numpy[:,:,::-1].copy()
             self.draw_best_match(cv2_img, best_match_uv[0], best_match_uv[1])
             cv2.imshow('img_rgb_labeled'+str(img_num), cv2_img)
+            cv2.moveWindow('img_rgb_labeled'+str(img_num), 0, 0)
+            cv2.moveWindow('img_rgb_labeled'+str(img_num), 350, 0+img_num*500)
             cv2.waitKey(1000)
-            cv2.destroyAllWindows()
     
         return best_match_uv, best_match_diff
 
