@@ -1,0 +1,11 @@
+descriptor:
+- 0.06199406087398529
+- 1.0470328330993652
+- -0.1056504175066948
+- -0.16335813701152802
+- 2.2417874336242676
+- -0.23242709040641785
+
+threshold_norm_diff: 0.5
+
+network_name: shoes_specific_M_background_2.000_with_synthetic

@@ -6,6 +6,8 @@ import numpy as np
 import rospy
 import actionlib
 
+from utils import *
+
 # pdc_ros_msgs
 import pdc_ros_msgs.msg
 
@@ -25,14 +27,33 @@ from dense_correspondence.evaluation.evaluation import DenseCorrespondenceEvalua
 
 import torch
 
+
+PICK_POINT_CONFIG_FILENAME = "caterpillar_tail_4.yaml"
+# PICK_POINT_CONFIG_FILENAME = "caterpillar_right_ear.yaml"
+# PICK_POINT_CONFIG_FILENAME = "shoe_tongue_consistent_2.yaml"
+# PICK_POINT_CONFIG_FILENAME = "shoe_heel_consistent.yaml"
+# PICK_POINT_CONFIG_FILENAME = "heel_red_shoe_specific_2.yaml"
+NETWORK_CONFIG_FILENAME = os.path.join(get_config_directory(), 'trained_networks.yaml')
+
+
 class PDCRos(object):
 
     def __init__(self):
         self.bridge = None
+        self.load_pick_point_config()
         self.load_dcn_network()
         self.debug_visualize = True
         self.best_match_visualize = True
-        pass
+
+    def load_pick_point_config(self):
+        """
+        Loads the config for the pick point. Stores the information on
+        - which network to use
+        - the descriptor to look for
+        """
+        config_filename = os.path.join(get_config_directory(), PICK_POINT_CONFIG_FILENAME)
+
+        self.pick_point_config = pdc_utils.getDictFromYamlFilename(config_filename)
 
     def load_dcn_network(self):
         """
@@ -40,25 +61,21 @@ class PDCRos(object):
 
         Currently just edit this function to change which
         """
-        config_filename = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config', 
-                               'dense_correspondence', 'evaluation', 'evaluation.yaml')
-        config = pdc_utils.getDictFromYamlFilename(config_filename)
-        default_config = pdc_utils.get_defaults_config()
+        config = pdc_utils.getDictFromYamlFilename(NETWORK_CONFIG_FILENAME)
+        defaults_config = pdc_utils.get_defaults_config()
         pdc_utils.set_cuda_visible_devices([0])
         dce = DenseCorrespondenceEvaluation(config)
 
-        network_name = "caterpillar_M_background_0.500_6"
+        network_name = self.pick_point_config["network_name"]
         self.dcn = dce.load_network_from_config(network_name)
-        self.dataset = self.dcn.load_training_dataset()
+        self.dataset = self.dcn.load_training_dataset() # why do we need to do this?
         print "finished loading dcn"
 
 
     def run(self):
         print "new"
-        rospy.loginfo("staring PDCRos")
+        rospy.loginfo("starting PDCRos")
         self._setup_ros_actions()
-        A = torch.rand(3)
-        print A
         rospy.spin()
 
     def _setup_ros_actions(self):
@@ -95,7 +112,11 @@ class PDCRos(object):
 
         best_index = None    # if best_index remains None, this is flag for none found
         best_index_match_uv = None
-        threshold_norm_diff = 0.30
+
+        if "threshold_norm_diff" in self.pick_point_config:
+            threshold_norm_diff = self.pick_point_config["threshold_norm_diff"]
+        else:
+            threshold_norm_diff = 0.3
 
         def rescale_depth_image(img):
             max_range = 2000.0
@@ -139,10 +160,12 @@ class PDCRos(object):
             #print np.max(depth_image_numpy_uint16), "is max of depth image"
 
         if best_index is None:
+            print "\n\n"
             print "I didnt find any matches below threshold of:"
             print threshold_norm_diff
             return False, None
         else:
+            print "\n\n"
             print "My best match was from img index", best_index
             print "The norm diff was", threshold_norm_diff
             print "At pixel (u,v):", best_index_match_uv
@@ -265,19 +288,13 @@ class PDCRos(object):
 
         # these are Variables holding torch.FloatTensors, first grab the data, then convert to numpy
         res = self.dcn.forward_single_image_tensor(rgb_tensor).data.cpu().numpy()
-        # if self.debug_visualize:
-        #     res_vis = res[:,:,::-1].copy()
-        #     res_vis = res_vis[:,:,:4]
-        #     cv2.imshow('img_res_'+str(img_num), res_vis)
-        #     cv2.moveWindow('img_res_'+str(img_num), 0, 0)
-        #     cv2.moveWindow('img_res_'+str(img_num), 0, 580)
 
-        #descriptor_target = np.asarray([1.2344482, 0.07725803, -0.703982]) # caterpillar tail
-        descriptor_target = self.get_descriptor_target_from_yaml()
+        # descriptor_target = self.get_descriptor_target_from_yaml()
+        descriptor_target = np.array(self.pick_point_config["descriptor"])
 
-        best_match_uv, best_match_diff, norm_diffs = self.dcn.find_best_match(None, None, res, descriptor=descriptor_target)
+        best_match_uv, best_match_diff, norm_diffs = self.dcn.find_best_match_for_descriptor(res,descriptor_target)
 
-        print best_match_diff
+        print "best match diff: ", best_match_diff
 
         if self.debug_visualize:
             cv2_img = rgb_image_numpy[:,:,::-1].copy()

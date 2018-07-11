@@ -1,0 +1,29 @@
+params:
+  num_image_pairs: 25
+  num_matches_per_image_pair: 100
+
+networks:
+  10_scenes_drill:
+    path_to_network_params: code/dense_correspondence/recipes/trained_models/10_drill_long_3d_3500_steps/dense_resnet_34_8s_03500.pth
+    descriptor_dimension: 3
+    image_width: 640
+    image_height: 480
+
+  caterpillar_standard_params_3:
+    path_to_network_params: code/data_volume/pdc/trained_models/stable/caterpillar_standard_params_3/003500.pth
+
+  caterpillar_M_background_0.500_6:
+    path_to_network_params: code/data_volume/pdc/trained_models/caterpillar_new/caterpillar_M_background_0.500_6/003501.pth
+
+  shoes_consistent_M_background_0.500_3:
+    path_to_network_params: code/data_volume/pdc/trained_models/shoes/shoes_consistent_M_background_0.500_3/003501.pth
+
+  shoes_specific_M_background_2.000_16:
+    path_to_network_params: code/data_volume/pdc/trained_models/shoes/shoes_specific_M_background_2.000_16/003501.pth
+
+  shoes_specific_M_background_2.000_with_synthetic:
+    path_to_network_params: code/data_volume/pdc/trained_models/shoes/shoes_specific_M_background_2.000_6_with_synthetic/003500.pth
+
+dataset: [] # which dataset to use, not used for now
+
+output_dir: code/data_volume/pdc/analysis

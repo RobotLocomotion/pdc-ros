@@ -1,0 +1,6 @@
+descriptor: # this was used for the pick all the shoe tongues demo
+- 0.5413327813148499
+- 0.2753247320652008
+- -0.35306814312934875
+
+network_name: "shoes_consistent_M_background_0.500_3"
