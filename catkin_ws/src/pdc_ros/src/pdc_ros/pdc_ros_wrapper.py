@@ -28,11 +28,13 @@ from dense_correspondence.evaluation.evaluation import DenseCorrespondenceEvalua
 import torch
 
 
-PICK_POINT_CONFIG_FILENAME = "caterpillar_tail_4.yaml"
+PICK_POINT_CONFIG_FILENAME = "caterpillar_tail.yaml"
 # PICK_POINT_CONFIG_FILENAME = "caterpillar_right_ear.yaml"
-# PICK_POINT_CONFIG_FILENAME = "shoe_tongue_consistent_2.yaml"
-# PICK_POINT_CONFIG_FILENAME = "shoe_heel_consistent.yaml"
-# PICK_POINT_CONFIG_FILENAME = "heel_red_shoe_specific_2.yaml"
+# PICK_POINT_CONFIG_FILENAME = "shoe_tongue_consistent.yaml"
+
+
+
+
 NETWORK_CONFIG_FILENAME = os.path.join(get_config_directory(), 'trained_networks.yaml')
 
 
