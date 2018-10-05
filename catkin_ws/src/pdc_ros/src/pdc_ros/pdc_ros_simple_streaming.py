@@ -4,7 +4,6 @@ import numpy as np
 
 # ROS imports
 import rospy
-import actionlib
 
 from utils import *
 
@@ -22,7 +21,6 @@ from PIL import Image as PILImage
 import dense_correspondence_manipulation.utils.utils as pdc_utils
 pdc_utils.add_dense_correspondence_to_python_path()
 dc_source_dir = pdc_utils.getDenseCorrespondenceSourceDir()
-sys.path.append(os.path.join(dc_source_dir, "dense_correspondence", "correspondence_tools"))
 from dense_correspondence.evaluation.evaluation import DenseCorrespondenceEvaluation
 from dense_correspondence.evaluation.plotting import normalize_descriptor
 
@@ -33,20 +31,15 @@ NETWORK_CONFIG_FILENAME = os.path.join(get_config_directory(), 'trained_networks
 NETWORK_NAME = "shoes_consistent_M_background_0.500_3"
 RGB_TOPIC = "/camera_carmine_1/rgb/image_rect_color"
 
-class PDCRos(object):
+class StreamingPdcRos(object):
 
     def __init__(self):
         self.bridge = None
         self.load_dcn_network()
-        self.debug_visualize = True
-        self.best_match_visualize = True
-
 
     def load_dcn_network(self):
         """
         Loads the DCN.
-
-        Currently just edit this function to change which
         """
         config = pdc_utils.getDictFromYamlFilename(NETWORK_CONFIG_FILENAME)
         defaults_config = pdc_utils.get_defaults_config()
@@ -56,7 +49,6 @@ class PDCRos(object):
         self.dcn = dce.load_network_from_config(NETWORK_NAME)
         self.dataset = self.dcn.load_training_dataset() # why do we need to do this?
         print "finished loading dcn"
-
 
     def run(self):
         print "new"
@@ -71,26 +63,16 @@ class PDCRos(object):
         
         # these are Variables holding torch.FloatTensors, first grab the data, then convert to numpy
         res_numpy = self.dcn.forward_single_image_tensor(rgb_tensor).data.cpu().numpy()
-
-        print "before"
-        print np.min(res_numpy), "min"
-        print np.max(res_numpy), "max"
         res_numpy = normalize_descriptor(res_numpy, self.dcn.descriptor_image_stats["mask_image"])
-        print np.min(res_numpy), "min"
-        print np.max(res_numpy), "max"
         res_numpy = np.clip(res_numpy, a_min = 0.0, a_max = 1.0)
-        res_numpy = 255 * res_numpy # Now scale by 255
+        res_numpy = 255 * res_numpy
         res_numpy = res_numpy.astype(np.uint8)
 
         res_ros = self.convert_numpy_to_ros(res_numpy)
         self.image_pub.publish(res_ros)
-
-        rospy.loginfo("I heard the image topic")
+        rospy.loginfo("Published descriptor image")
 
     def _setup_ros_subscribers_publishers(self):
-        """
-        Initializes the ros actions
-        """
         rospy.Subscriber(RGB_TOPIC, Image, self.rgb_image_callback)
         self.image_pub = rospy.Publisher("pdc_dense_descriptors", Image)
 
