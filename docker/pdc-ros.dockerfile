@@ -33,8 +33,8 @@ COPY ./install_director_deps.sh /tmp/install_director_deps.sh
 RUN yes "Y" | /tmp/install_director_deps.sh
 
 # visdom hotfix
-COPY ./visdom_download_scripts.sh /tmp/visdom_download_scripts.sh
-RUN yes "Y" | /tmp/visdom_download_scripts.sh
+COPY ./install_ros.sh /tmp/install_ros.sh
+RUN yes "Y" | /tmp/install_ros.sh
 
 # set the terminator inside the docker container to be a different colors
 RUN mkdir -p .config/terminator
