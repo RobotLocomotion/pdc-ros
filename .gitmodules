@@ -1,6 +1,6 @@
 [submodule "pytorch-dense-correspondence"]
 	path = pytorch-dense-correspondence
-	url = git@github.com:peteflorence/pytorch-dense-correspondence.git
+	url = git@github.com:RobotLocomotion/pytorch-dense-correspondence.git
 [submodule "catkin_ws/src/pdc_ros_msgs"]
 	path = catkin_ws/src/pdc_ros_msgs
 	url = git@github.com:RobotLocomotion/pdc_ros_msgs.git
