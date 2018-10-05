@@ -47,6 +47,7 @@ class StreamingPdcRos(object):
         dce = DenseCorrespondenceEvaluation(config)
 
         self.dcn = dce.load_network_from_config(NETWORK_NAME)
+        self.dcn.eval()
         self.dataset = self.dcn.load_training_dataset() # why do we need to do this?
         print "finished loading dcn"
 
@@ -70,11 +71,12 @@ class StreamingPdcRos(object):
 
         res_ros = self.convert_numpy_to_ros(res_numpy)
         self.image_pub.publish(res_ros)
+        
         rospy.loginfo("Published descriptor image")
 
     def _setup_ros_subscribers_publishers(self):
-        rospy.Subscriber(RGB_TOPIC, Image, self.rgb_image_callback)
-        self.image_pub = rospy.Publisher("pdc_dense_descriptors", Image)
+        rospy.Subscriber(RGB_TOPIC, Image, self.rgb_image_callback, queue_size=1)
+        self.image_pub = rospy.Publisher("pdc_dense_descriptors", Image, queue_size=1)
 
         rospy.loginfo("finished setting up subscribers and publishers")
 
