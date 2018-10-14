@@ -28,10 +28,10 @@ apt-get update
 
 apt install python-tk
 
-apt install -y --no-install-recommends \
-  ros-kinetic-desktop \
-  ros-kinetic-librealsense \
-  ros-kinetic-realsense-camera \
-  ros-kinetic-moveit \
-  ros-kinetic-openni2-launch \
-  ros-kinetic-image-pipeline
+#apt install -y --no-install-recommends \
+#  ros-kinetic-desktop \
+  #ros-kinetic-librealsense \
+  #ros-kinetic-realsense-camera \
+  #ros-kinetic-moveit \
+#  ros-kinetic-openni2-launch \
+#  ros-kinetic-image-pipeline
