@@ -17,7 +17,6 @@ export -f use_pytorch_dense_correspondence
 function use_ros()
 {	
 	source /opt/ros/kinetic/setup.bash
-    source $PDC_ROS_SOURCE_DIR/catkin_ws/devel/setup.bash
     echo "using ros"
 }
 
