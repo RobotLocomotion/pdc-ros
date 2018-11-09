@@ -105,18 +105,20 @@ class KeypointDetectionROS(object):
 
         rgb_img_numpy = cv_bridge.imgmsg_to_cv2(msg, desired_encoding="rgb8")
         rgb_img_PIL = PILImage.fromarray(rgb_img_numpy)
-
+        
+        
         rgb_img_tensor = self._keypoint_detection.dataset.rgb_image_to_tensor(rgb_img_PIL)
 
         res_numpy = self._keypoint_detection.dcn.forward_single_image_tensor(rgb_img_tensor).data.cpu().numpy()
         rgb_img_w_keypoints = np.copy(rgb_img_numpy)
 
         kp_detections = self._keypoint_detection._detect_keypoints(res_numpy)
-        self._keypoint_detection._visualize_keypoints(rgb_img_w_keypoints, kp_detections,
+        cv2_img_w_keypoints = cv_bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        self._keypoint_detection._visualize_keypoints(cv2_img_w_keypoints, kp_detections,
                                                       copy_image=False)
 
         # publish results
-        rgb_img_w_keypoints_ros = utils.convert_numpy_image_to_ros_image(rgb_img_w_keypoints)
+        rgb_img_w_keypoints_ros = cv_bridge.cv2_to_imgmsg(cv2_img_w_keypoints, encoding="bgr8")
         self._keypoint_image_pub.publish(rgb_img_w_keypoints_ros)
 
 
