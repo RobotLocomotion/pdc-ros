@@ -1,6 +1,9 @@
 # system
 from PIL import Image as PILImage
 import numpy as np
+import threading
+import cv2
+import matplotlib.pyplot as plt
 
 # ros
 import rospy
@@ -13,6 +16,10 @@ from dense_correspondence_manipulation.keypoint_detection.keypoint_detection imp
 from pdc_ros.utils.simple_subscriber import SimpleSubscriber
 import pdc_ros.utils.utils as utils
 
+
+from cv_bridge import CvBridge, CvBridgeError
+
+cv_bridge = CvBridge()
 
 DEBUG = True
 
@@ -28,8 +35,22 @@ class KeypointDetectionROS(object):
         self._keypoint_detection = keypoint_detection
         self._config = config
         self._debug = DEBUG
+        self._initialize()
         self._setup_subscribers()
         self._setup_publishers()
+        self._setup_threads()
+
+    def _initialize(self):
+        """
+        Initializes a few useful class variables
+        :return:
+        :rtype:
+        """
+
+        # note this is in bgr8 format
+        self._reference_image_w_keypoints_bgr = self._keypoint_detection._visualize_reference_image()
+        self._reference_image_w_keypoints_ros = cv_bridge.cv2_to_imgmsg(self._reference_image_w_keypoints_bgr, encoding='bgr8')
+
 
     def _setup_subscribers(self):
         """
@@ -49,7 +70,25 @@ class KeypointDetectionROS(object):
         :return:
         :rtype:
         """
-        self._keypoint_image_pub = rospy.Publisher("keypoints", sensor_msgs.msg.Image, queue_size=1)
+        self._keypoint_image_pub = rospy.Publisher("~keypoints", sensor_msgs.msg.Image, queue_size=1)
+        self._reference_image_pub = rospy.Publisher("~reference_image", sensor_msgs.msg.Image, queue_size=1)
+
+    def _setup_threads(self):
+        self._publish_reference_image_thread = threading.Thread(target=self._publish_reference_image)
+
+
+    def _publish_reference_image(self, hz=1.0):
+        """
+        Publishes out the reference image. Hits the target rate by including a sleep
+        :return:
+        :rtype:
+        """
+
+        while True:
+            if self._debug:
+                print "\n--------publishing reference image----------\n"
+            self._reference_image_pub.publish(self._reference_image_w_keypoints_ros)
+            rospy.sleep(1.0/hz)
 
 
     def _on_rgb_image(self, msg):
@@ -64,8 +103,7 @@ class KeypointDetectionROS(object):
         if self._debug:
             print "received RGB image"
 
-
-        rgb_img_numpy = utils.convert_ros_image_to_numpy_image(msg)
+        rgb_img_numpy = cv_bridge.imgmsg_to_cv2(msg, desired_encoding="rgb8")
         rgb_img_PIL = PILImage.fromarray(rgb_img_numpy)
 
         rgb_img_tensor = self._keypoint_detection.dataset.rgb_image_to_tensor(rgb_img_PIL)
@@ -81,6 +119,15 @@ class KeypointDetectionROS(object):
         rgb_img_w_keypoints_ros = utils.convert_numpy_image_to_ros_image(rgb_img_w_keypoints)
         self._keypoint_image_pub.publish(rgb_img_w_keypoints_ros)
 
+
+
+    def run(self):
+        """
+        Starts self._publish_reference_image_thread
+        :return:
+        :rtype:
+        """
+        self._publish_reference_image_thread.start()
 
     @staticmethod
     def default_config():
