@@ -38,6 +38,8 @@ python src/pdc_ros/nodes/find_best_match_node.py
 
 ## Running Caterpillar Tail Pick Demo
 
+You can edit the file `pdc_ros_wrapper.py` in `pdc-ros` and choose which demo to run (ear, tail, shoe).
+
 1. Launch `spartan` and startup robot as usual.
 
 2. In pdc-ros container aunch node to respond to ROS actions to find best descriptor matches.
@@ -60,6 +62,8 @@ roslaunch spartan_grasp_wrapper spartan_grasp_wrapper.launch
 ```
 
 4. In `director` use `graspSupervisor.test_find_best_match_and_grasp_and_stow()` to execute the pick. 
+
+
 
 
 
