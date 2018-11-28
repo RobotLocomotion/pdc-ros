@@ -11,10 +11,14 @@ to set is `KEYPOINT_DETECTION_CONFIG_FILE` which specificies what the keypoints 
 3. Launch keypoint detection node.
 
 ```
+use_all
 cd ~/code/catkin_ws/src/pdc_ros/nodes
 python keypoint_detection_node.py
 ```
 
-This 
-
-4. Launch `rviz` to visualize the results
+4. In another terminal launch `rviz` to visualize the results
+```
+use_all
+cd ~/code/catkin_ws/src/pdc_ros/config
+rosrun rviz rviz keypoint_vis.rviz
+```
