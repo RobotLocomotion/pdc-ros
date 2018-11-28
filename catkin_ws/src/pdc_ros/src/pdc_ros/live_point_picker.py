@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import copy
 
-from utils import *
+from pdc_ros.utils.utils import *
 
 import dense_correspondence_manipulation.utils.utils as utils
 utils.add_dense_correspondence_to_python_path()

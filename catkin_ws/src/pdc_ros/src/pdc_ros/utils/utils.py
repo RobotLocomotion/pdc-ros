@@ -1,8 +1,11 @@
-#ros
-import rospy
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
-from PIL import Image as PILImage
-import cv2
+# system
+import os
 
+def get_pdc_ros_source_dir():
+    return os.getenv("PDC_ROS_SOURCE_DIR")
 
+def get_pdc_source_dir():
+    return os.getenv("DC_SOURCE_DIR")
+
+def get_config_directory():
+    return os.path.join(get_pdc_ros_source_dir(), "config")
