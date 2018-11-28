@@ -4,6 +4,7 @@ import numpy as np
 import threading
 import cv2
 import matplotlib.pyplot as plt
+import os
 
 # ros
 import rospy
@@ -11,6 +12,7 @@ import sensor_msgs.msg
 
 # pdc
 from dense_correspondence_manipulation.keypoint_detection.keypoint_detection import KeypointDetection
+import dense_correspondence_manipulation.utils.utils as dc_utils
 
 # pdc-ros
 from pdc_ros.utils.simple_subscriber import SimpleSubscriber
@@ -21,7 +23,11 @@ from cv_bridge import CvBridge, CvBridgeError
 
 cv_bridge = CvBridge()
 
-DEBUG = True
+DEBUG = False
+
+DC_SOURCE_DIR = utils.getDenseCorrespondenceSourceDir()
+KEYPOINT_CONFIG_FILE = os.path.join(utils.get_config_directory(), 'shoe_keypoints.yaml')
+EVAL_CONFIG_FILENAME = os.path.join(utils.get_config_directory(), 'evaluation.yaml')
 
 class KeypointDetectionROS(object):
 
@@ -152,8 +158,12 @@ class KeypointDetectionROS(object):
         :return:
         :rtype:
         """
-        keypoint_detection = KeypointDetection.make_default()
-        config = KeypointDetectionROS.default_config()
-        return KeypointDetectionROS(keypoint_detection, config)
+
+        keypoint_config = utils.getDictFromYamlFilename(CONFIG_FILE)
+        eval_config = utils.getDictFromYamlFilename(EVAL_CONFIG_FILENAME)
+        keypoint_detection = KeypointDetection(keypoint_config, eval_config)
+
+        keypoint_ros_config = KeypointDetectionROS.default_config()
+        return KeypointDetectionROS(keypoint_detection, keypoint_ros_config)
 
 
