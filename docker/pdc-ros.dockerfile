@@ -1,4 +1,3 @@
-#ARG PARENT_IMAGE=manuelli-pytorch-dense-correspondence
 ARG PARENT_IMAGE
 FROM ${PARENT_IMAGE}
 
