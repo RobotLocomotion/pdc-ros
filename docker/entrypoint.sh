@@ -5,6 +5,8 @@ export PDC_ROS_SOURCE_DIR=~/code
 export DATA_DIR=~/data
 export DC_DATA_DIR=$DATA_DIR/pdc
 export DC_SOURCE_DIR=$PDC_ROS_SOURCE_DIR/pytorch-dense-correspondence
+export PDC_ROS_BUILD_DIR=$PDC_ROS_SOURCE_DIR/build
+export POSER_BUILD_DIR=$PDC_ROS_BUILD_DIR/poser
 
 function use_pytorch_dense_correspondence()
 {
