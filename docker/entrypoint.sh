@@ -8,6 +8,9 @@ export DC_SOURCE_DIR=$PDC_ROS_SOURCE_DIR/pytorch-dense-correspondence
 export PDC_ROS_BUILD_DIR=$PDC_ROS_SOURCE_DIR/build
 export POSER_BUILD_DIR=$PDC_ROS_BUILD_DIR/poser
 
+export PDC_ROS_SANDBOX_DIR=~/sandbox
+export POSER_OUTPUT_DIR=$PDC_ROS_SANDBOX_DIR/poser
+
 function use_pytorch_dense_correspondence()
 {
     source $DC_SOURCE_DIR/config/setup_environment.sh
@@ -15,6 +18,13 @@ function use_pytorch_dense_correspondence()
 }
 
 export -f use_pytorch_dense_correspondence
+
+function use_director()
+{
+    export PATH=$PATH:~/director/bin
+}
+export -f use_director
+
 
 function use_ros()
 {	

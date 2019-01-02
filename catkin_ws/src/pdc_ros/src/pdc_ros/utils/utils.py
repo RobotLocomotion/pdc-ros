@@ -9,3 +9,6 @@ def get_pdc_source_dir():
 
 def get_config_directory():
     return os.path.join(get_pdc_ros_source_dir(), "config")
+
+def get_data_dir():
+    return os.getenv("DATA_DIR")

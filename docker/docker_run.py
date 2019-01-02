@@ -54,6 +54,8 @@ if __name__=="__main__":
     cmd += " -v ~/.torch:%(home_directory)s/.torch " % {'home_directory': home_directory}  # mount torch folder 
                                                         # where pytorch standard models (i.e. resnet34) are stored
 
+
+
     cmd += " --user %s " % user_name                                                    # login as current user
 
     # cmd += " --env-file ./main.env"
@@ -62,8 +64,17 @@ if __name__=="__main__":
     config_yaml = yaml.load(file(config_file))
     host_name = socket.gethostname()
 
-    # mounts data volue to ~/data inside the docker container
+    # mounts data volume to ~/data inside the docker container
     cmd += " -v %s:%s/data" %(config_yaml[host_name][user_name]['path_to_data_directory'], home_directory)
+
+    # mount sandbox to ~/sandbox
+    if "path_to_sandbox_directory" in config_yaml[host_name][user_name]:
+        path_to_sandbox_directory = config_yaml[host_name][user_name]["path_to_sandbox_directory"]
+    else:
+        path_to_sandbox_directory = os.path.join(home_directory, 'sandbox')
+
+
+    cmd += " -v %s:%s/sandbox" % (path_to_sandbox_directory, home_directory)
 
     # expose UDP ports
     cmd += " -p 8888:8888 "
