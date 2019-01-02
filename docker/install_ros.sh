@@ -14,4 +14,5 @@ apt install -y --no-install-recommends \
 
 apt-get install -y  \
   ros-kinetic-openni2-launch \
-  ros-kinetic-image-pipeline
+  ros-kinetic-image-pipeline \
+  ros-kinetic-ros-numpy
