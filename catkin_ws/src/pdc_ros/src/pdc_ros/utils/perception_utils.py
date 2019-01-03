@@ -3,11 +3,12 @@ import numpy as np
 from PIL import Image as PILImage
 
 # ROS
-import cv_bridge
 from cv_bridge import CvBridge, CvBridgeError
 
 # pdc_ros
 import pdc_ros.utils.utils as pdc_ros_utils
+
+cv_bridge = CvBridge()
 
 def rgb_img_msg_to_PIL(msg):
     """
@@ -27,15 +28,14 @@ def depth_img_msg_to_PIL(msg):
 
     :param msg: sensor_msgs/Image
     :type msg:
-    :return: PIL.Image with single channel, uint16, depth is expressed in millimeters
+    :return: cv2 image with single channel, uint16, depth is expressed in millimeters
     :rtype:
     """
     cv_img = cv_bridge.imgmsg_to_cv2(msg, "32FC1")
     cv_img = np.array(cv_img, dtype=np.float32)
     cv_img = cv_img * 1000
     cv_img = cv_img.astype(np.uint16)
-    depth_img = PILImage.fromarray(cv_img)
-    return depth_img
+    return cv_img
 
 
 def parse_RGBD_with_pose(msg):
@@ -46,7 +46,7 @@ def parse_RGBD_with_pose(msg):
     :return: dict with following fields
 
     - 'rgb': rgb image of type PIL.Image, BGR encoding
-    - 'depth': rgb image of type PIL.Image
+    - 'depth': rgb image of type cv2 image (just numpy array)
     - 'camera_to_world': itself dict of form
 
         camera_to_world:
@@ -65,9 +65,9 @@ def parse_RGBD_with_pose(msg):
     """
     d = dict()
 
-    d['rgb'] = rgb_img_msg_to_PIL(msg)
-    d['depth'] = depth_img_msg_to_PIL(msg)
-    d['camera_to_world'] = pdc_ros_utils.homogeneous_transform_from_transform_msg(msg)
+    d['rgb'] = rgb_img_msg_to_PIL(msg.rgb_image)
+    d['depth'] = depth_img_msg_to_PIL(msg.depth_image)
+    d['camera_to_world'] = pdc_ros_utils.homogeneous_transform_from_transform_msg(msg.camera_pose.transform)[1]
 
     return d
 

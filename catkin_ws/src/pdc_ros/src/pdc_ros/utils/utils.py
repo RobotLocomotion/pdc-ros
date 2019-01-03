@@ -16,6 +16,9 @@ def get_config_directory():
 def get_data_dir():
     return os.getenv("DATA_DIR")
 
+def get_sandbox_dir():
+    return os.getenv("PDC_ROS_SANDBOX_DIR")
+
 def homogeneous_transform_from_transform_msg(msg):
     """
     Computes 4 x 4 homogeneous transform matrix from a geometry_msgs/Transform
@@ -38,4 +41,4 @@ def homogeneous_transform_from_transform_msg(msg):
     d['quaternion']['z'] = quat.z
 
 
-    return pdc_utils.homogenous_transform_from_dict(d)
+    return pdc_utils.homogenous_transform_from_dict(d), d

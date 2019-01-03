@@ -272,7 +272,7 @@ class PDCRos(object):
         depth = depth_mm/1000.0
 
         # 4 x 4 numpy array
-        camera_to_world = pdc_ros_utils.homogeneous_transform_from_transform_msg(camera_pose.transform)
+        camera_to_world, _ = pdc_ros_utils.homogeneous_transform_from_transform_msg(camera_pose.transform)
 
         pos = DCE.compute_3d_position(best_match_uv, depth, camera_intrinsics_matrix, camera_to_world)
         return pos
