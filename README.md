@@ -91,6 +91,8 @@ roslaunch spartan_grasp_wrapper spartan_grasp_wrapper.launch
 
 5. To visualize the results use `graspSupervisor.visualize_poser_result()`
 
+6. Re-orient the object to the desired configuration by running `grasp_supervisor.test_run_manipulate_object()`.
+
 
 
 
