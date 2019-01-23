@@ -27,7 +27,8 @@ dc_source_dir = pdc_utils.getDenseCorrespondenceSourceDir()
 from dense_correspondence_manipulation.poser.poser_client import PoserClient
 
 
-POSER_CONFIG_FILE = os.path.join(pdc_ros_utils.get_config_directory(), 'poser_ros.yaml')
+# POSER_CONFIG_FILE = os.path.join(pdc_ros_utils.get_config_directory(), 'poser_ros.yaml')
+POSER_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config', 'poser', 'poser_ros.yaml')
 
 class PoserROSServer(object):
 
@@ -35,7 +36,7 @@ class PoserROSServer(object):
         self._config = config
         self._client = PoserClient(visualize=False, config=config)
         self._client.load_network()
-        self._client.load_segmentation_network()
+        # self._client.load_segmentation_network()
         self._setup_ros_actions()
 
     def _setup_ros_actions(self):
