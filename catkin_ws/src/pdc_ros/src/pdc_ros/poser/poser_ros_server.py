@@ -35,6 +35,7 @@ class PoserROSServer(object):
         self._config = config
         self._client = PoserClient(visualize=False, config=config)
         self._client.load_network()
+        self._client.load_segmentation_network()
         self._setup_ros_actions()
 
     def _setup_ros_actions(self):
