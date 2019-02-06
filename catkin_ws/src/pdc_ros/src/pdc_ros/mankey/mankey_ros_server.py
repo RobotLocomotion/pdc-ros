@@ -52,7 +52,7 @@ class ManKeyROSServer(object):
                                                            auto_start=False)
 
     def _on_keypoint_detection_action(self, goal):
-        rospy.loginfo("Received KeypointDetectionAction request")
+        rospy.loginfo("\n\n-------Received KeypointDetectionAction request-------")
 
         image_data_list = []
         for msg in goal.rgbd_with_pose_list:
@@ -65,7 +65,9 @@ class ManKeyROSServer(object):
         result = pdc_ros_msgs.msg.KeypointDetectionResult()
         result.output_folder = relpath_to_sandbox_dir
 
+
         self._action_server.set_succeeded(result)
+        rospy.loginfo("------Completed KeypointDetectionAction request-------\n\n")
 
     def run(self):
         """
