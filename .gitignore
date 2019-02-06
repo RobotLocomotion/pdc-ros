@@ -10,5 +10,6 @@ trained_models
 *.nv
 *.ssh/
 data
+build
 catkin_ws/build
 catkin_ws/devel

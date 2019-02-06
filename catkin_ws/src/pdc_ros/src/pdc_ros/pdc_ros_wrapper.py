@@ -6,7 +6,7 @@ import numpy as np
 import rospy
 import actionlib
 
-from utils import *
+from pdc_ros.utils.utils import *
 
 # pdc_ros_msgs
 import pdc_ros_msgs.msg
@@ -294,7 +294,7 @@ class PDCRos(object):
         # descriptor_target = self.get_descriptor_target_from_yaml()
         descriptor_target = np.array(self.pick_point_config["descriptor"])
 
-        best_match_uv, best_match_diff, norm_diffs = self.dcn.find_best_match_for_descriptor(res,descriptor_target)
+        best_match_uv, best_match_diff, norm_diffs = self.dcn.find_best_match_for_descriptor(descriptor_target, res)
 
         print "best match diff: ", best_match_diff
 

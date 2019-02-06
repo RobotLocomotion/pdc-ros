@@ -5,7 +5,7 @@ import numpy as np
 # ROS imports
 import rospy
 
-from utils import *
+from pdc_ros.utils.utils import *
 
 # pdc_ros_msgs
 import pdc_ros_msgs.msg
