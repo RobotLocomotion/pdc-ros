@@ -1,6 +1,4 @@
-import numpy as np
 import os
-import functools
 
 from threading import Event
 
@@ -13,7 +11,13 @@ import pdc_ros_msgs.msg
 import pdc_ros.utils.utils as pdc_ros_utils
 
 # pdc
-from dense_correspondence_manipulation.category_manipulation.category_manipulation import CategoryManipulation, CategoryManipulationWrapper
+from dense_correspondence_manipulation.category_manipulation.category_manipulation import CategoryManipulationWrapper
+from dense_correspondence_manipulation.keypoint_detection.keypoint_detection_type import KeypointDetectionType
+import dense_correspondence_manipulation.keypoint_detection.utils as keypoint_utils
+
+
+OBJECT_NAME = "shoe_0"
+IMAGE_NAME = "image_1"
 
 class CategoryManipulationROSServer(object):
 
@@ -83,19 +87,15 @@ class CategoryManipulationROSServer(object):
         """
 
         print "\n\n-------Received Category Manipulation Action Request----------\n\n"
-        poser_output_folder = goal.poser_output_dir
+        output_dir = goal.poser_output_dir
 
         # if string is not empty
-        if poser_output_folder:
-            poser_output_folder = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.poser_output_dir)
+        if output_dir:
+            output_dir = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.output_dir)
         else:
-            poser_output_folder = os.getenv("POSER_OUTPUT_DIR")
+            output_dir = os.getenv("POSER_OUTPUT_DIR")
         #
-        print "poser_output_folder:", poser_output_folder
-
-        # import pydrake
-        # print "making category manipulation wrapper"
-        # category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
+        print "output_dir:", output_dir
 
 
         self._category_manipulation_wrapper = CategoryManipulationWrapper.make_shoe_default()
@@ -104,8 +104,26 @@ class CategoryManipulationROSServer(object):
         self.THREAD_SIGNAL = False
 
         self._threading_event.clear()
+
+
+
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+
+        parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
+        object_name = parser.get_unique_object_name()
+        image_name = IMAGE_NAME
+
         def solve_function():
-            self._solution = self._category_manipulation_wrapper.compute_target_transform_from_poser_output_folder()
+            if keypoint_detection_type == KeypointDetectionType.MANKEY:
+                self._solution = self._category_manipulation_wrapper.run_from_mankey_output(output_dir, object_name, image_name)
+            elif keypoint_detection_type == KeypointDetectionType.POSER:
+                self._solution = self._category_manipulation_wrapper.run_from_poser_output(output_dir, object_name,
+                                                                                            image_name)
+            else:
+                raise ValueError("keypoint_detection_type must be one of `poser` or `mankey`. It was %s" %(goal.keypoint_detection_type))
+
+
+            # notify the main thread that solution has been found
             self._threading_event.set()
 
 
@@ -127,7 +145,7 @@ class CategoryManipulationROSServer(object):
             def vis_function():
                 self._category_manip_vis._clear_visualization()
                 self._category_manip_vis.load_synthetic_background()
-                self._category_manip_vis.visualize_result(self._solution, poser_output_dir=poser_output_folder)
+                self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir, keypoint_detection_type=keypoint_detection_type)
 
             self.taskRunner.callOnMain(vis_function)
 

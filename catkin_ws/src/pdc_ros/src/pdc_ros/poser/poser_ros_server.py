@@ -63,7 +63,7 @@ class PoserROSServer(object):
         relpath_to_sandbox_dir = os.path.relpath(output_dir, sandbox_dir)
         
         result = pdc_ros_msgs.msg.DeformableRegistrationResult()
-        result.poser_output_folder = relpath_to_sandbox_dir
+        result.output_dir = relpath_to_sandbox_dir
 
         self._poser_action_server.set_succeeded(result)
 

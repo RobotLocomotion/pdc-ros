@@ -1,6 +1,7 @@
 # ROS imports
 import rospy
 
+# pdc_ros
 from pdc_ros.category_manipulation.category_manipulation_server import CategoryManipulationROSServer
 
 
