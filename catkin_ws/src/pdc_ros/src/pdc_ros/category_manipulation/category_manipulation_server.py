@@ -14,10 +14,13 @@ import pdc_ros.utils.utils as pdc_ros_utils
 from dense_correspondence_manipulation.category_manipulation.category_manipulation import CategoryManipulationWrapper
 from dense_correspondence_manipulation.keypoint_detection.keypoint_detection_type import KeypointDetectionType
 import dense_correspondence_manipulation.keypoint_detection.utils as keypoint_utils
+import dense_correspondence_manipulation.utils.utils as pdc_utils
 
 
 OBJECT_NAME = "shoe_0"
 IMAGE_NAME = "image_1"
+CATEGORY_MANIPULATION_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/shoes_mankey.yaml')
+CATEGORY_MANIPULATION_CONFIG = pdc_utils.getDictFromYamlFilename(CATEGORY_MANIPULATION_CONFIG_FILE)
 
 class CategoryManipulationROSServer(object):
 
@@ -25,7 +28,11 @@ class CategoryManipulationROSServer(object):
 
         self._use_director = use_director
         self._config = config
-        self._category_config = category_config # mugs, shoes etc.
+        if category_config is None:
+            self._category_config = CATEGORY_MANIPULATION_CONFIG
+        else:
+            self._category_config = category_config
+
         self._threading_event = Event()
 
         if use_director:
@@ -34,7 +41,7 @@ class CategoryManipulationROSServer(object):
             from director.taskrunner import TaskRunner
 
 
-            self._category_manip_vis = CategoryManipulationVisualizer(category_config=category_config)
+            self._category_manip_vis = CategoryManipulationVisualizer(category_config=self._category_config)
             self.taskRunner = TaskRunner()
 
         # self.setup_server()
@@ -87,29 +94,28 @@ class CategoryManipulationROSServer(object):
         """
 
         print "\n\n-------Received Category Manipulation Action Request----------\n\n"
-        output_dir = goal.poser_output_dir
+        output_dir = goal.output_dir
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
 
         # if string is not empty
         if output_dir:
             output_dir = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.output_dir)
-        else:
+        elif keypoint_detection_type == KeypointDetectionType.POSER:
             output_dir = os.getenv("POSER_OUTPUT_DIR")
-        #
+        elif keypoint_detection_type == KeypointDetectionType.MANKEY:
+            output_dir = os.getenv("MANKEY_OUTPUT_DIR")
+
         print "output_dir:", output_dir
 
 
-        self._category_manipulation_wrapper = CategoryManipulationWrapper.make_shoe_default()
+        self._category_manipulation_wrapper = CategoryManipulationWrapper(CATEGORY_MANIPULATION_CONFIG)
 
         self._solution = None
         self.THREAD_SIGNAL = False
-
         self._threading_event.clear()
 
-
-
-        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
-
         parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
+        parser.load_response()
         object_name = parser.get_unique_object_name()
         image_name = IMAGE_NAME
 
