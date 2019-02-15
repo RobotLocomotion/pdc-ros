@@ -26,18 +26,18 @@ pdc_utils.add_dense_correspondence_to_python_path()
 dc_source_dir = pdc_utils.getDenseCorrespondenceSourceDir()
 from dense_correspondence_manipulation.mankey_utils.mankey_client import ManKeyClient
 
-# POSER_CONFIG_FILE = os.path.join(pdc_ros_utils.get_config_directory(), 'poser_ros.yaml')
-MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config', 'mankey', 'mankey.yaml')
 
+# # shoes
+# MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mankey.yaml')
+#
+# # mugs
+# MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mugs.yaml')
 
 class ManKeyROSServer(object):
 
     def __init__(self, config=None):
         self._config = config
-        if config is None:
-            self._client = ManKeyClient.make_shoes_default()
-        else:
-            self._client = ManKeyClient(config)
+        self._client = ManKeyClient(config)
         self._setup_ros_actions()
 
     def _setup_ros_actions(self):
@@ -58,13 +58,19 @@ class ManKeyROSServer(object):
         for msg in goal.rgbd_with_pose_list:
             image_data_list.append(perception_utils.parse_RGBD_with_pose(msg))
 
-        output_dir = self._client.run_on_images(image_data_list)
+        num_detected_objects, output_dir = self._client.run_on_images(image_data_list)
+
+        if num_detected_objects == 0:
+            msg = "Mask RCNN detected 0 objects, aborting"
+            rospy.loginfo(msg)
+            self._action_server.set_aborted(text=msg)
+            rospy.loginfo("------Aborted KeypointDetectionAction request-------\n\n")
+
         sandbox_dir = pdc_ros_utils.get_sandbox_dir()
         relpath_to_sandbox_dir = os.path.relpath(output_dir, sandbox_dir)
 
         result = pdc_ros_msgs.msg.KeypointDetectionResult()
         result.output_folder = relpath_to_sandbox_dir
-
 
         self._action_server.set_succeeded(result)
         rospy.loginfo("------Completed KeypointDetectionAction request-------\n\n")

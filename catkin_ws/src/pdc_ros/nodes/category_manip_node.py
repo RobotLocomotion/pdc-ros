@@ -1,19 +1,39 @@
+# system
+import os
+
 # ROS imports
 import rospy
 
 # pdc_ros
 from pdc_ros.category_manipulation.category_manipulation_server import CategoryManipulationROSServer
-
+import dense_correspondence_manipulation.utils.utils as pdc_utils
 
 USE_DIRECTOR = True
+
+SERVER_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/category_manipulation_server.yaml')
+SERVER_CONFIG = pdc_utils.getDictFromYamlFilename(SERVER_CONFIG_FILE)
+
+
+###### SHOES
+CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/shoes.yaml')
+TYPE = "SHOE_ON_TABLE"
+
+
+####### MUGS
+# CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_synthetic.yaml')
+# TYPE = "MUG_ON_TABLE"
+
+
+CATEGORY_CONFIG = pdc_utils.getDictFromYamlFilename(CATEGORY_CONFIG_FILE)
+SERVER_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/category_manipulation_server.yaml')
+SERVER_CONFIG = pdc_utils.getDictFromYamlFilename(SERVER_CONFIG_FILE)[TYPE]
 
 
 if __name__ == "__main__":
     rospy.init_node("category_manip")
-    category_manip_server = CategoryManipulationROSServer.make_shoe_default(use_director=USE_DIRECTOR)
+    category_manip_server = CategoryManipulationROSServer(use_director=USE_DIRECTOR, config=SERVER_CONFIG, category_config=CATEGORY_CONFIG)
 
     globalsDict = globals()
-
 
     if USE_DIRECTOR:
         globalsDict = globals()

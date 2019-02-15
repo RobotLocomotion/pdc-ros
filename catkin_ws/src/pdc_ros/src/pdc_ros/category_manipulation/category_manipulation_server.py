@@ -14,9 +14,9 @@ import pdc_ros.utils.utils as pdc_ros_utils
 from dense_correspondence_manipulation.category_manipulation.category_manipulation import CategoryManipulationWrapper
 from dense_correspondence_manipulation.keypoint_detection.keypoint_detection_type import KeypointDetectionType
 import dense_correspondence_manipulation.keypoint_detection.utils as keypoint_utils
+from dense_correspondence_manipulation.category_manipulation.category_manipulation_type import CategoryManipulationType
 
 
-OBJECT_NAME = "shoe_0"
 IMAGE_NAME = "image_1"
 
 class CategoryManipulationROSServer(object):
@@ -25,7 +25,9 @@ class CategoryManipulationROSServer(object):
 
         self._use_director = use_director
         self._config = config
-        self._category_config = category_config # mugs, shoes etc.
+
+        assert category_config is not None
+        self._category_config = category_config  # mugs, shoes etc.
         self._threading_event = Event()
 
         if use_director:
@@ -38,6 +40,10 @@ class CategoryManipulationROSServer(object):
             self.taskRunner = TaskRunner()
 
         # self.setup_server()
+
+
+        self._category_manipulation_type = CategoryManipulationType.from_string(self._config["cateogry_manipulation_type"])
+
 
 
     def setup_server(self):
@@ -97,15 +103,14 @@ class CategoryManipulationROSServer(object):
         #
         print "output_dir:", output_dir
 
+        goal_pose_name = self._config["goal+_pose_name"]
+        target_pose_dict = self._category_config['poses'][goal_pose_name]
 
-        self._category_manipulation_wrapper = CategoryManipulationWrapper.make_shoe_default()
-
+        self._category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
         self._solution = None
         self.THREAD_SIGNAL = False
 
         self._threading_event.clear()
-
-
 
         keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
 
@@ -115,7 +120,9 @@ class CategoryManipulationROSServer(object):
 
         def solve_function():
             if keypoint_detection_type == KeypointDetectionType.MANKEY:
-                self._solution = self._category_manipulation_wrapper.run_from_mankey_output(output_dir, object_name, image_name)
+                self._solution = \
+                    self._category_manipulation_wrapper.run_from_mankey_output(output_dir, object_name, image_name,
+                                                                               self._category_manipulation_type, target_pose_dict)
             elif keypoint_detection_type == KeypointDetectionType.POSER:
                 self._solution = self._category_manipulation_wrapper.run_from_poser_output(output_dir, object_name,
                                                                                             image_name)
@@ -160,7 +167,7 @@ class CategoryManipulationROSServer(object):
         """
 
         shoe_config = CategoryManipulationWrapper.get_shoe_config()
-        return CategoryManipulationROSServer(category_config=shoe_config, **kwargs)
+        return CategoryManipulationROSServer(category_config=shoe_config)
 
 
 
