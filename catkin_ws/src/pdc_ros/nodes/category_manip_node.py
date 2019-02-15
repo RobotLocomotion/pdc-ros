@@ -10,8 +10,7 @@ import dense_correspondence_manipulation.utils.utils as pdc_utils
 
 USE_DIRECTOR = True
 
-SERVER_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/category_manipulation_server.yaml')
-SERVER_CONFIG = pdc_utils.getDictFromYamlFilename(SERVER_CONFIG_FILE)
+
 
 
 ###### SHOES
@@ -20,11 +19,13 @@ TYPE = "SHOE_ON_TABLE"
 
 
 ####### MUGS
-# CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_synthetic.yaml')
+# CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_3_keypoints.yaml')
 # TYPE = "MUG_ON_TABLE"
+# TYPE = "MUG_ON_TABLE_ROTATION_INVARIANT"
 
 
 CATEGORY_CONFIG = pdc_utils.getDictFromYamlFilename(CATEGORY_CONFIG_FILE)
+
 SERVER_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/category_manipulation_server.yaml')
 SERVER_CONFIG = pdc_utils.getDictFromYamlFilename(SERVER_CONFIG_FILE)[TYPE]
 
