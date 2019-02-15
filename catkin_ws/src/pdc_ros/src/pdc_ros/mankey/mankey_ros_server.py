@@ -70,7 +70,7 @@ class ManKeyROSServer(object):
         relpath_to_sandbox_dir = os.path.relpath(output_dir, sandbox_dir)
 
         result = pdc_ros_msgs.msg.KeypointDetectionResult()
-        result.output_folder = relpath_to_sandbox_dir
+        result.output_dir = relpath_to_sandbox_dir
 
         self._action_server.set_succeeded(result)
         rospy.loginfo("------Completed KeypointDetectionAction request-------\n\n")

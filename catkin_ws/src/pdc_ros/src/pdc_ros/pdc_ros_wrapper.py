@@ -6,7 +6,7 @@ import numpy as np
 import rospy
 import actionlib
 
-import from pdc_ros.utils.utils as pdc_ros_utils
+import pdc_ros.utils.utils as pdc_ros_utils
 from pdc_ros.utils.utils import *
 
 # pdc_ros_msgs

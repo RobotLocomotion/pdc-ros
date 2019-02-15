@@ -20,5 +20,10 @@ function use_all()
 {
 	use_ros
     use_pdc_ros
+    use_pytorch_dense_correspondence
+    use_drake
+    use_director
     echo "using pdc and ros"
 }
+
+export -f use_all
