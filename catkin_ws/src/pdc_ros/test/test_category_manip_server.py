@@ -16,6 +16,8 @@ def test_category_manipulation_action():
     print "connected to server"
 
     goal = pdc_ros_msgs.msg.CategoryManipulationGoal()
+    goal.output_dir = "mankey"
+    goal.keypoint_detection_type = "mankey"
     print "goal:", goal
 
     print "sending goal"

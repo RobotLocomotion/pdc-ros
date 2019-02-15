@@ -42,7 +42,7 @@ class CategoryManipulationROSServer(object):
         # self.setup_server()
 
 
-        self._category_manipulation_type = CategoryManipulationType.from_string(self._config["cateogry_manipulation_type"])
+        self._category_manipulation_type = CategoryManipulationType.from_string(self._config["manipulation_type"])
 
 
 
@@ -93,17 +93,17 @@ class CategoryManipulationROSServer(object):
         """
 
         print "\n\n-------Received Category Manipulation Action Request----------\n\n"
-        output_dir = goal.poser_output_dir
+        output_dir = None
 
         # if string is not empty
-        if output_dir:
+        if goal.output_dir:
             output_dir = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.output_dir)
         else:
             output_dir = os.getenv("POSER_OUTPUT_DIR")
         #
         print "output_dir:", output_dir
 
-        goal_pose_name = self._config["goal+_pose_name"]
+        goal_pose_name = self._config["goal_pose_name"]
         target_pose_dict = self._category_config['poses'][goal_pose_name]
 
         self._category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
