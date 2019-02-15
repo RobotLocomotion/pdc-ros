@@ -65,6 +65,7 @@ class ManKeyROSServer(object):
             rospy.loginfo(msg)
             self._action_server.set_aborted(text=msg)
             rospy.loginfo("------Aborted KeypointDetectionAction request-------\n\n")
+            return
 
         sandbox_dir = pdc_ros_utils.get_sandbox_dir()
         relpath_to_sandbox_dir = os.path.relpath(output_dir, sandbox_dir)
