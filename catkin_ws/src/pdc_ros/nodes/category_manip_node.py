@@ -14,14 +14,15 @@ USE_DIRECTOR = True
 
 
 ###### SHOES
-CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/shoes_mankey.yaml')
-TYPE = "SHOE_ON_TABLE"
+# CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/shoes_mankey.yaml')
+# TYPE = "SHOE_ON_TABLE"
 
 
 ####### MUGS
-# CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_3_keypoints.yaml')
+CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_3_keypoints.yaml')
 # TYPE = "MUG_ON_TABLE"
 # TYPE = "MUG_ON_TABLE_ROTATION_INVARIANT"
+TYPE = "MUG_ON_TABLE_3_KEYPOINTS"
 
 
 CATEGORY_CONFIG = pdc_utils.getDictFromYamlFilename(CATEGORY_CONFIG_FILE)
