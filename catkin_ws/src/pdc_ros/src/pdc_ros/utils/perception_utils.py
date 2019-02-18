@@ -4,9 +4,12 @@ from PIL import Image as PILImage
 
 # ROS
 from cv_bridge import CvBridge, CvBridgeError
+import ros_numpy
 
 # pdc_ros
 import pdc_ros.utils.utils as pdc_ros_utils
+
+
 
 cv_bridge = CvBridge()
 
@@ -70,4 +73,19 @@ def parse_RGBD_with_pose(msg):
     d['camera_to_world'] = pdc_ros_utils.homogeneous_transform_from_transform_msg(msg.camera_pose.transform)[1]
 
     return d
+
+def numpy_from_pointcloud2_msg(msg):
+    """
+
+    :param msg: sensor_msgs/PointCloud2
+    :type msg:
+    :return:
+    :rtype:
+    """
+    pc = ros_numpy.numpify(msg)
+    points=np.zeros((pc.shape[0],3))
+    points[:,0]=pc['x']
+    points[:,1]=pc['y']
+    points[:,2]=pc['z']
+    return points
 
