@@ -11,8 +11,6 @@ import dense_correspondence_manipulation.utils.utils as pdc_utils
 USE_DIRECTOR = True
 
 
-
-
 ###### SHOES
 # CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/shoes_mankey.yaml')
 # TYPE = "SHOE_ON_TABLE"
@@ -22,7 +20,8 @@ USE_DIRECTOR = True
 CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_3_keypoints.yaml')
 # TYPE = "MUG_ON_TABLE"
 # TYPE = "MUG_ON_TABLE_ROTATION_INVARIANT"
-TYPE = "MUG_ON_TABLE_3_KEYPOINTS"
+# TYPE = "MUG_ON_TABLE_3_KEYPOINTS"
+TYPE = "MUG_ON_RACK"
 
 
 CATEGORY_CONFIG = pdc_utils.getDictFromYamlFilename(CATEGORY_CONFIG_FILE)
@@ -30,11 +29,14 @@ CATEGORY_CONFIG = pdc_utils.getDictFromYamlFilename(CATEGORY_CONFIG_FILE)
 SERVER_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/category_manipulation_server.yaml')
 SERVER_CONFIG = pdc_utils.getDictFromYamlFilename(SERVER_CONFIG_FILE)[TYPE]
 
+MUG_RACK_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(),"config/category_manipulation/mug_rack.yaml")
+MUG_RACK_CONFIG = pdc_utils.getDictFromYamlFilename(MUG_RACK_CONFIG_FILE)
+
 
 if __name__ == "__main__":
     rospy.init_node("category_manip")
 
-    category_manip_server = CategoryManipulationROSServer(use_director=USE_DIRECTOR, config=SERVER_CONFIG, category_config=CATEGORY_CONFIG)
+    category_manip_server = CategoryManipulationROSServer(use_director=USE_DIRECTOR, config=SERVER_CONFIG, category_config=CATEGORY_CONFIG, mug_rack_config=MUG_RACK_CONFIG)
 
 
     globalsDict = globals()

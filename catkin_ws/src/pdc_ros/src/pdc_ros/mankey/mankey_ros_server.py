@@ -29,9 +29,10 @@ from dense_correspondence_manipulation.mankey_utils.mankey_client import ManKeyC
 
 # # shoes
 # MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mankey.yaml')
-#
-# # mugs
-# MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mugs.yaml')
+
+
+# mugs
+MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mugs.yaml')
 
 class ManKeyROSServer(object):
 

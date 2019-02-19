@@ -1,5 +1,9 @@
 # system
 import os
+import numpy as np
+
+# ros
+import ros_numpy
 
 # pdc
 import dense_correspondence_manipulation.utils.utils as pdc_utils
@@ -42,3 +46,24 @@ def homogeneous_transform_from_transform_msg(msg):
 
 
     return pdc_utils.homogenous_transform_from_dict(d), d
+
+
+def numpy_from_pointcloud2_msg(msg):
+    """
+
+    :param msg: sensor_msgs/PointCloud2
+    :type msg:
+    :return:
+    :rtype:
+    """
+
+    pc = ros_numpy.numpify(msg)
+    num_points = msg.width * msg.height
+
+    points=np.zeros((num_points,3))
+    points[:,0]=pc['x'].flatten()
+    points[:,1]=pc['y'].flatten()
+    points[:,2]=pc['z'].flatten()
+
+
+    return points

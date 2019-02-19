@@ -7,10 +7,11 @@ import rospy
 import actionlib
 import ros_numpy
 import geometry_msgs
+
+
 # pdc_ros_msgs
 import pdc_ros_msgs.msg
 import pdc_ros.utils.utils as pdc_ros_utils
-import pdc_ros.utils.perception_utils as perception_utils
 
 
 # pdc
@@ -36,7 +37,7 @@ class CategoryManipulationROSServer(object):
 
         self._use_director = use_director
         self._config = config
-        self._mug_rack_config = None
+        self._mug_rack_config = mug_rack_config
 
 
         assert category_config is not None
@@ -81,6 +82,11 @@ class CategoryManipulationROSServer(object):
                                                                  pdc_ros_msgs.msg.CategoryManipulationAction, execute_cb=self._on_category_manipulation_action,
                                                                  auto_start=False)
 
+        self._mug_on_rack_action_server = actionlib.SimpleActionServer("MugOnRackManipulation",
+                                                                                 pdc_ros_msgs.msg.MugOnRackManipulationAction,
+                                                                                 execute_cb=self._on_mug_on_rack_manipulation_action,
+                                                                                 auto_start=False)
+
     def run(self, spin=True):
         """
         Start the node
@@ -91,6 +97,7 @@ class CategoryManipulationROSServer(object):
         print "running node"
         self.setup_server()
         self._category_manipulation_action_server.start()
+        self._mug_on_rack_action_server.start()
         print "action server started"
 
         if spin:
@@ -175,7 +182,7 @@ class CategoryManipulationROSServer(object):
 
         print "\n\n-------Category Manipulation Action Finished----------\n\n"
 
-    def _on_mug_manipulation_action(self, goal):
+    def _on_mug_on_rack_manipulation_action(self, goal):
         """
         Runs the mug manipulation action
         :param goal:
@@ -216,6 +223,7 @@ class CategoryManipulationROSServer(object):
         rack_config = self._mug_rack_config
         mug_rack_pose_name = self._config["mug_rack_pose_name"]
         rack_pose_dict = rack_config['poses'][mug_rack_pose_name]
+        self._solution = None
 
         def solve_function():
             self._solution = \
@@ -235,21 +243,23 @@ class CategoryManipulationROSServer(object):
         print "waiting on event"
         self._threading_event.wait()
 
+
+
+
+
+        result = pdc_ros_msgs.msg.MugOnRackManipulationResult()
+
         T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
-
-        result = pdc_ros_msgs.msg.CategoryManipulationResult()
-        result.T_goal_obs = T_goal_obs.flatten().tolist()
-
+        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
         # do the grasping
-        pointcloud_list = []
         d = DebugData()
         for rgbd_with_pose in goal.rgbd_with_pose_list:
             pointcloud_msg = rgbd_with_pose.point_cloud
             T_world_pointcloud, _ = pdc_ros_utils.homogeneous_transform_from_transform_msg(rgbd_with_pose.point_cloud_pose.transform)
             T_world_pointcloud_vtk = transformUtils.getTransformFromNumpy(T_world_pointcloud)
 
-            pointcloud_numpy = perception_utils.numpy_from_pointcloud2_msg(pointcloud_msg)
+            pointcloud_numpy = pdc_ros_utils.numpy_from_pointcloud2_msg(pointcloud_msg)
             pointcloud_vtk = vnp.getVtkPolyDataFromNumpyPoints(pointcloud_numpy)
             pointcloud_vtk = filterUtils.transformPolyData(pointcloud_vtk, T_world_pointcloud_vtk)
 
@@ -258,21 +268,24 @@ class CategoryManipulationROSServer(object):
         fused_cloud = d.getPolyData()
         grasp_planner = CategoryGraspPlanner()
         kp_container = self._solution["kp_container"]
-        T_world_grasp_vtk = grasp_planner.plan_mug_on_rack_grasp(fused_cloud, kp_container)
+        T_world_grasp_vtk = grasp_planner.plan_mug_on_rack_grasp(fused_cloud, kp_container, visualize=True, task_runner=self.taskRunner)
 
         T_world_grasp = transformUtils.getNumpyFromTransform(T_world_grasp_vtk)
-        result.gripper_fingertip_frame = ros_numpy.msgify(geometry_msgs.msg.Transform, T_world_grasp)
+        result.T_world_gripper_fingertip = ros_numpy.msgify(geometry_msgs.msg.Pose, T_world_grasp)
+        result.T_pre_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, self._solution["T_pre_goal_obs"])
 
-        result.T_pre_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Transform, self._solution["T_pre_goal_obs"])
+        print("finished making message")
+        print("result", result)
 
 
-        self._category_manipulation_action_server.set_succeeded(result)
+        self._mug_on_rack_action_server.set_succeeded(result)
 
         # launch the visualization
         if self._use_director:
             def vis_function():
                 self._category_manip_vis._clear_visualization()
                 self._category_manip_vis.load_synthetic_background()
+                self._category_manip_vis.load_mug_rack_and_side_table()
                 self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir,
                                                           keypoint_detection_type=keypoint_detection_type)
 
