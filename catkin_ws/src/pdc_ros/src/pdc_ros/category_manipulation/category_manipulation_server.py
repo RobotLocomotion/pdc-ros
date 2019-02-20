@@ -21,6 +21,7 @@ import dense_correspondence_manipulation.keypoint_detection.utils as keypoint_ut
 from dense_correspondence_manipulation.category_manipulation.category_manipulation_type import CategoryManipulationType
 import dense_correspondence_manipulation.utils.utils as pdc_utils
 from dense_correspondence_manipulation.category_manipulation.grasping import CategoryGraspPlanner
+import dense_correspondence_manipulation.utils.director_utils as director_utils
 
 import director.vtkNumpy as vnp
 import director.transformUtils as transformUtils
@@ -204,8 +205,22 @@ class CategoryManipulationROSServer(object):
 
         print "output_dir:", output_dir
 
+
+        # T_mug_rack
         goal_pose_name = self._config["goal_pose_name"]
-        target_pose_dict = self._category_config['poses'][goal_pose_name]
+        T_rack_mug_vtk = director_utils.transformFromPose(self._category_config['poses'][goal_pose_name])
+
+
+        # T_world_rack
+        rack_config = self._mug_rack_config
+        mug_rack_pose_name = self._config["mug_rack_pose_name"]
+        T_world_rack_vtk = director_utils.transformFromPose(rack_config['poses'][mug_rack_pose_name])
+        T_world_rack = transformUtils.getNumpyFromTransform(T_world_rack_vtk)
+
+        # get T_world_mug_model
+        T_world_mug_model_vtk = transformUtils.concatenateTransforms([T_rack_mug_vtk, T_world_rack_vtk])
+        T_world_mug_model = transformUtils.getNumpyFromTransform(T_world_mug_model_vtk)
+
 
         self._category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
 
@@ -220,19 +235,12 @@ class CategoryManipulationROSServer(object):
         image_name = IMAGE_NAME
 
 
-        rack_config = self._mug_rack_config
-        mug_rack_pose_name = self._config["mug_rack_pose_name"]
-        rack_pose_dict = rack_config['poses'][mug_rack_pose_name]
+
         self._solution = None
 
         def solve_function():
             self._solution = \
-                self._category_manipulation_wrapper.mug_on_rack(output_dir,
-                                                                object_name,
-                                                                image_name,
-                                                                target_pose_dict,
-                                                                rack_pose_dict,
-                                                                rack_config)
+                self._category_manipulation_wrapper.mug_on_rack(output_dir, object_name, image_name, T_world_mug_model, T_world_rack, rack_config)
 
             # notify the main thread that solution has been found
             self._threading_event.set()
@@ -266,9 +274,11 @@ class CategoryManipulationROSServer(object):
             d.addPolyData(pointcloud_vtk)
 
         fused_cloud = d.getPolyData()
+        print("fused_cloud.GetNumberOfPoints()", fused_cloud.GetNumberOfPoints())
+        print("fused_cloud.GetNumberOfCells()", fused_cloud.GetNumberOfCells())
         grasp_planner = CategoryGraspPlanner()
         kp_container = self._solution["kp_container"]
-        T_world_grasp_vtk = grasp_planner.plan_mug_on_rack_grasp(fused_cloud, kp_container, visualize=True, task_runner=self.taskRunner)
+        T_world_grasp_vtk, grasp_type = grasp_planner.plan_mug_on_rack_grasp(fused_cloud, kp_container, visualize=True, task_runner=self.taskRunner)
 
         T_world_grasp = transformUtils.getNumpyFromTransform(T_world_grasp_vtk)
         result.T_world_gripper_fingertip = ros_numpy.msgify(geometry_msgs.msg.Pose, T_world_grasp)
