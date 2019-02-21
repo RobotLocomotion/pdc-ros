@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 from threading import Event
 
@@ -12,10 +13,11 @@ import geometry_msgs
 # pdc_ros_msgs
 import pdc_ros_msgs.msg
 import pdc_ros.utils.utils as pdc_ros_utils
+import pdc_ros.utils.director_utils as pdc_ros_director_utils
 
 
 # pdc
-from dense_correspondence_manipulation.category_manipulation.category_manipulation import CategoryManipulationWrapper
+from dense_correspondence_manipulation.category_manipulation.category_manipulation import CategoryManipulationWrapper, CategoryManipulation
 from dense_correspondence_manipulation.keypoint_detection.keypoint_detection_type import KeypointDetectionType
 import dense_correspondence_manipulation.keypoint_detection.utils as keypoint_utils
 from dense_correspondence_manipulation.category_manipulation.category_manipulation_type import CategoryManipulationType
@@ -109,79 +111,20 @@ class CategoryManipulationROSServer(object):
 
     def _on_category_manipulation_action(self, goal):
         """
-        Call the category_manipulation optimization
+        Dispatch to appropriate sub-routine
         :return:
         :rtype:
         """
 
-        print "\n\n-------Received Category Manipulation Action Request----------\n\n"
-
-
-        # if string is not empty
-        if goal.output_dir:
-            output_dir = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.output_dir)
-        elif keypoint_detection_type == KeypointDetectionType.POSER:
-            output_dir = os.getenv("POSER_OUTPUT_DIR")
-        elif keypoint_detection_type == KeypointDetectionType.MANKEY:
-            output_dir = os.getenv("MANKEY_OUTPUT_DIR")
-
-        print "output_dir:", output_dir
-
-        goal_pose_name = self._config["goal_pose_name"]
-        target_pose_dict = self._category_config['poses'][goal_pose_name]
-
-
-        self._category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
-
-        self._solution = None
-        self.THREAD_SIGNAL = False
-        self._threading_event.clear()
-
-        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
-        parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
-        parser.load_response()
-        object_name = parser.get_unique_object_name()
-        image_name = IMAGE_NAME
-
-        def solve_function():
-            if keypoint_detection_type == KeypointDetectionType.MANKEY:
-                self._solution = \
-                    self._category_manipulation_wrapper.run_from_mankey_output(output_dir, object_name, image_name,
-                                                                               self._category_manipulation_type, target_pose_dict)
-            elif keypoint_detection_type == KeypointDetectionType.POSER:
-                self._solution = self._category_manipulation_wrapper.run_from_poser_output(output_dir, object_name,
-                                                                                            image_name)
-            else:
-                raise ValueError("keypoint_detection_type must be one of `poser` or `mankey`. It was %s" %(goal.keypoint_detection_type))
-
-
-            # notify the main thread that solution has been found
-            self._threading_event.set()
-
-
-        self.taskRunner.callOnMain(solve_function)
-
-        print "waiting on event"
-        self._threading_event.wait()
-
-        T_goal_obs = self._solution['T_goal_obs'] # 4x4 homogeneous transform
-
-        result = pdc_ros_msgs.msg.CategoryManipulationResult()
-        result.T_goal_obs = T_goal_obs.flatten().tolist()
-
-        self._category_manipulation_action_server.set_succeeded(result)
-
-        # launch the visualization
-        if self._use_director:
-
-            def vis_function():
-                self._category_manip_vis._clear_visualization()
-                self._category_manip_vis.load_synthetic_background()
-                self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir, keypoint_detection_type=keypoint_detection_type)
-
-            self.taskRunner.callOnMain(vis_function)
-
-        print "\n\n-------Category Manipulation Action Finished----------\n\n"
+        # dispatch based on type in our config
+        if self._category_manipulation_type == CategoryManipulationType.SHOE_ON_TABLE:
+            self.shoe_on_table(goal)
+        elif self._category_manipulation_type == CategoryManipulationType.MUG_ON_TABLE_3_KEYPOINTS:
+            self.mug_on_table_3_keypoints(goal)
+        elif self._category_manipulation_type == CategoryManipulationType.MUG_ON_RACK:
+            self.mug_on_rack(goal)
+        elif self._category_manipulation_type == CategoryManipulationType.MUG_ON_SHELF_3D:
+            self.mug_on_shelf_3D(goal)
 
     def _on_mug_on_rack_manipulation_action(self, goal):
         """
@@ -191,6 +134,8 @@ class CategoryManipulationROSServer(object):
         :return:
         :rtype:
         """
+
+        raise ValueError("DEPRECATED METHOD")
 
         print "\n\n-------Received Mug Rack Manipulation Action Request----------\n\n"
 
@@ -302,6 +247,359 @@ class CategoryManipulationROSServer(object):
             self.taskRunner.callOnMain(vis_function)
 
         print "\n\n-------Mug Rack Manipulation Action Finished----------\n\n"
+
+
+    def mug_on_table_3_keypoints(self, goal):
+        """
+        Dispatch to appropriate sub-routine
+        :return:
+        :rtype:
+        """
+
+        print "\n\n-------Received MUG_ON_TABLE Manipulation Action Request----------\n\n"
+
+        # only support MANKEY for now
+
+        # if string is not empty
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        # if string is not empty
+        if goal.output_dir:
+            output_dir = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.output_dir)
+        else:
+            output_dir = os.getenv("MANKEY_OUTPUT_DIR")
+
+        print "output_dir:", output_dir
+
+        goal_pose_name = self._config["goal_pose_name"]
+        target_pose_dict = self._category_config['poses'][goal_pose_name]
+        T_goal_model_vtk = director_utils.transformFromPose(target_pose_dict)
+        T_goal_model = transformUtils.getNumpyFromTransform(T_goal_model_vtk)
+
+        self._category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
+
+        self._solution = None
+        self.THREAD_SIGNAL = False
+        self._threading_event.clear()
+
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
+        parser.load_response()
+        object_name = parser.get_unique_object_name()
+        image_name = IMAGE_NAME
+
+        d = self._category_manipulation_wrapper.construct_keypoint_containers_from_mankey_output_dir(output_dir,
+                                                                                                     object_name,
+                                                                                                     image_name,
+                                                                                                     T_goal_model)
+        kp_container = d['kp_container']
+        goal_kp_container = d['goal_kp_container']
+        T_init_goal_obs = d['T_init_goal_obs']
+
+        def solve_function():
+            cm = CategoryManipulation()
+            mp = cm.construct_keypoint_optimization(kp_container, goal_kp_container, T_init=T_init_goal_obs)
+
+            solver_code = mp.Solve()
+            print("solver code:", solver_code)
+            sol = cm.parse_solution(mp, T_init=cm.T_init)
+            sol['solver_code'] = solver_code
+            sol["category_manipulation_type"] = CategoryManipulationType.MUG_ON_TABLE
+
+            self._solution = sol
+            self._threading_event.set()
+
+        self.taskRunner.callOnMain(solve_function)
+
+        print "waiting on event"
+        self._threading_event.wait()
+
+        T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
+
+        result = pdc_ros_msgs.msg.CategoryManipulationResult()
+        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.Pose, T_goal_obs)
+
+        self._category_manipulation_action_server.set_succeeded(result)
+
+        # launch the visualization
+        if self._use_director:
+            def vis_function():
+                self._category_manip_vis._clear_visualization()
+                self._category_manip_vis.load_synthetic_background()
+                self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir,
+                                                          keypoint_detection_type=keypoint_detection_type)
+
+            self.taskRunner.callOnMain(vis_function)
+
+        print "\n\n-------SHOE_ON_TABLE Manipulation Action Finished----------\n\n"
+
+    def shoe_on_table(self, goal):
+        """
+        Dispatch to appropriate sub-routine
+        :return:
+        :rtype:
+        """
+
+        print "\n\n-------Received SHOE_ON_TABLE Manipulation Action Request----------\n\n"
+
+        # only support MANKEY for now
+
+        # if string is not empty
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        # if string is not empty
+        if goal.output_dir:
+            output_dir = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.output_dir)
+        else:
+            output_dir = os.getenv("MANKEY_OUTPUT_DIR")
+
+        print "output_dir:", output_dir
+
+        goal_pose_name = self._config["goal_pose_name"]
+        target_pose_dict = self._category_config['poses'][goal_pose_name]
+        T_goal_model_vtk = director_utils.transformFromPose(target_pose_dict)
+        T_goal_model = transformUtils.getNumpyFromTransform(T_goal_model_vtk)
+
+        self._category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
+
+        self._solution = None
+        self.THREAD_SIGNAL = False
+        self._threading_event.clear()
+
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
+        parser.load_response()
+        object_name = parser.get_unique_object_name()
+        image_name = IMAGE_NAME
+
+        d = self._category_manipulation_wrapper.construct_keypoint_containers_from_mankey_output_dir(output_dir, object_name, image_name, T_goal_model)
+
+        kp_container = d['kp_container']
+        goal_kp_container = d['goal_kp_container']
+        T_init_goal_obs = d['T_init_goal_obs']
+
+        def solve_function():
+            cm = CategoryManipulation()
+            mp = cm.construct_keypoint_optimization(kp_container, goal_kp_container, T_init=T_init_goal_obs)
+
+            solver_code = mp.Solve()
+            print("solver code:", solver_code)
+            sol = cm.parse_solution(mp, T_init=cm.T_init)
+            sol['solver_code'] = solver_code
+            sol["category_manipulation_type"] = CategoryManipulationType.SHOE_ON_TABLE
+
+            self._solution = sol
+            self._threading_event.set()
+
+
+        self.taskRunner.callOnMain(solve_function)
+
+        print "waiting on event"
+        self._threading_event.wait()
+
+        T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
+
+        result = pdc_ros_msgs.msg.CategoryManipulationResult()
+        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.Pose, T_goal_obs)
+
+        self._category_manipulation_action_server.set_succeeded(result)
+
+        # launch the visualization
+        if self._use_director:
+            def vis_function():
+                self._category_manip_vis._clear_visualization()
+                self._category_manip_vis.load_synthetic_background()
+                self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir,
+                                                          keypoint_detection_type=keypoint_detection_type)
+
+            self.taskRunner.callOnMain(vis_function)
+
+        print "\n\n-------SHOE_ON_TABLE Manipulation Action Finished----------\n\n"
+
+    def mug_on_table_rotation_invariant(self, goal):
+        """
+                Dispatch to appropriate sub-routine
+                :return:
+                :rtype:
+                """
+
+        print "\n\n-------Received SHOE_ON_TABLE Manipulation Action Request----------\n\n"
+
+        # only support MANKEY for now
+
+        # if string is not empty
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        # if string is not empty
+        if goal.output_dir:
+            output_dir = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.output_dir)
+        else:
+            output_dir = os.getenv("MANKEY_OUTPUT_DIR")
+
+        print "output_dir:", output_dir
+
+        goal_pose_name = self._config["goal_pose_name"]
+        target_pose_dict = self._category_config['poses'][goal_pose_name]
+        T_goal_model_vtk = director_utils.transformFromPose(target_pose_dict)
+        T_goal_model = transformUtils.getNumpyFromTransform(T_goal_model_vtk)
+
+        self._category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
+
+        self._solution = None
+        self.THREAD_SIGNAL = False
+        self._threading_event.clear()
+
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
+        parser.load_response()
+        object_name = parser.get_unique_object_name()
+        image_name = IMAGE_NAME
+
+        d = self._category_manipulation_wrapper.construct_keypoint_containers_from_mankey_output_dir(output_dir,
+                                                                                                     object_name,
+                                                                                                     image_name,
+                                                                                                     T_goal_model)
+
+        kp_container = d['kp_container']
+        goal_kp_container = d['goal_kp_container']
+        T_init_goal_obs = d['T_init_goal_obs']
+
+        def solve_function():
+            cm = CategoryManipulation()
+            target_vector = np.array([0, 0, 1])
+            mp = cm.construct_mug_on_table_rotation_invariant(kp_container, goal_kp_container,
+                                                              target_vector=target_vector, T_init=T_init_goal_obs)
+
+            solver_code = mp.Solve()
+            print("solver code:", solver_code)
+            sol = cm.parse_solution(mp, T_init=cm.T_init)
+            sol['solver_code'] = solver_code
+            sol["category_manipulation_type"] = CategoryManipulationType.SHOE_ON_TABLE
+
+            self._solution = sol
+            self._threading_event.set()
+
+        self.taskRunner.callOnMain(solve_function)
+
+        print "waiting on event"
+        self._threading_event.wait()
+
+        T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
+
+        result = pdc_ros_msgs.msg.CategoryManipulationResult()
+        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.Pose, T_goal_obs)
+
+        self._category_manipulation_action_server.set_succeeded(result)
+
+        # launch the visualization
+        if self._use_director:
+            def vis_function():
+                self._category_manip_vis._clear_visualization()
+                self._category_manip_vis.load_synthetic_background()
+                self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir,
+                                                          keypoint_detection_type=keypoint_detection_type)
+
+            self.taskRunner.callOnMain(vis_function)
+
+        print "\n\n-------SHOE_ON_TABLE Manipulation Action Finished----------\n\n"
+
+    def mug_on_rack(self, goal):
+        """
+                Runs the mug manipulation action
+                :param goal:
+                :type goal:
+                :return:
+                :rtype:
+                """
+
+        print "\n\n-------Received Mug Rack Manipulation Action Request----------\n\n"
+
+        # if string is not empty
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        if goal.output_dir:
+            output_dir = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.output_dir)
+        elif keypoint_detection_type == KeypointDetectionType.POSER:
+            output_dir = os.getenv("POSER_OUTPUT_DIR")
+        elif keypoint_detection_type == KeypointDetectionType.MANKEY:
+            output_dir = os.getenv("MANKEY_OUTPUT_DIR")
+
+        print "output_dir:", output_dir
+
+        # T_mug_rack
+        goal_pose_name = self._config["goal_pose_name"]
+        T_rack_mug_vtk = director_utils.transformFromPose(self._category_config['poses'][goal_pose_name])
+
+        # T_world_rack
+        rack_config = self._mug_rack_config
+        mug_rack_pose_name = self._config["mug_rack_pose_name"]
+        T_world_rack_vtk = director_utils.transformFromPose(rack_config['poses'][mug_rack_pose_name])
+        T_world_rack = transformUtils.getNumpyFromTransform(T_world_rack_vtk)
+
+        # get T_world_mug_model
+        T_world_mug_model_vtk = transformUtils.concatenateTransforms([T_rack_mug_vtk, T_world_rack_vtk])
+        T_world_mug_model = transformUtils.getNumpyFromTransform(T_world_mug_model_vtk)
+
+        self._category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
+
+        self._solution = None
+        self.THREAD_SIGNAL = False
+        self._threading_event.clear()
+
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
+        parser.load_response()
+        object_name = parser.get_unique_object_name()
+        image_name = IMAGE_NAME
+
+        self._solution = None
+
+        def solve_function():
+            self._solution = \
+                self._category_manipulation_wrapper.mug_on_rack(output_dir, object_name, image_name, T_world_mug_model,
+                                                                T_world_rack, rack_config)
+
+            # notify the main thread that solution has been found
+            self._threading_event.set()
+
+        self.taskRunner.callOnMain(solve_function)
+
+        print "waiting on event"
+        self._threading_event.wait()
+
+        result = pdc_ros_msgs.msg.MugOnRackManipulationResult()
+
+        T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
+        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
+
+
+        fused_cloud = pdc_ros_director_utils.vtk_poly_data_from_RGBD_with_pose_list(goal.rgbd_with_pose_list)
+
+        grasp_planner = CategoryGraspPlanner()
+        kp_container = self._solution["kp_container"]
+        T_world_grasp_vtk, grasp_type = grasp_planner.plan_mug_on_rack_grasp(fused_cloud, kp_container, visualize=True,
+                                                                             task_runner=self.taskRunner)
+
+        T_world_grasp = transformUtils.getNumpyFromTransform(T_world_grasp_vtk)
+        result.T_world_gripper_fingertip = ros_numpy.msgify(geometry_msgs.msg.Pose, T_world_grasp)
+        result.T_pre_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, self._solution["T_pre_goal_obs"])
+
+        print("finished making message")
+        print("result", result)
+
+        self._mug_on_rack_action_server.set_succeeded(result)
+
+        # launch the visualization
+        if self._use_director:
+            def vis_function():
+                self._category_manip_vis._clear_visualization()
+                self._category_manip_vis.load_synthetic_background()
+                self._category_manip_vis.load_mug_rack_and_side_table()
+                self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir,
+                                                          keypoint_detection_type=keypoint_detection_type)
+
+            self.taskRunner.callOnMain(vis_function)
+
+        print "\n\n-------Mug Rack Manipulation Action Finished----------\n\n"
+
+    def mug_on_shelf_3D(self, goal):
+        pass
 
     @staticmethod
     def make_shoe_default(**kwargs):
