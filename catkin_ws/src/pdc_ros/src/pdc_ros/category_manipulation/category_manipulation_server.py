@@ -62,6 +62,8 @@ class CategoryManipulationROSServer(object):
 
         self._category_manipulation_type = CategoryManipulationType.from_string(self._config["manipulation_type"])
 
+        print("category manipulation type %s" %self._config["manipulation_type"])
+
 
 
     def setup_server(self):
@@ -117,6 +119,7 @@ class CategoryManipulationROSServer(object):
         """
 
         # dispatch based on type in our config
+        rospy.loginfo("\n\n---- Received action request, dispatching it appropriately----\n\n")
         if self._category_manipulation_type == CategoryManipulationType.SHOE_ON_TABLE:
             self.shoe_on_table(goal)
         elif self._category_manipulation_type == CategoryManipulationType.MUG_ON_TABLE_3_KEYPOINTS:
@@ -125,6 +128,8 @@ class CategoryManipulationROSServer(object):
             self.mug_on_rack(goal)
         elif self._category_manipulation_type == CategoryManipulationType.MUG_ON_SHELF_3D:
             self.mug_on_shelf_3D(goal)
+        else:
+            raise ValueError("unknown manipulation type")
 
     def _on_mug_on_rack_manipulation_action(self, goal):
         """
@@ -256,7 +261,7 @@ class CategoryManipulationROSServer(object):
         :rtype:
         """
 
-        print "\n\n-------Received MUG_ON_TABLE Manipulation Action Request----------\n\n"
+        print "\n\n-------Received MUG_ON_TABLE_3_KEYPOINTS Manipulation Action Request----------\n\n"
 
         # only support MANKEY for now
 
@@ -316,7 +321,7 @@ class CategoryManipulationROSServer(object):
         T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
 
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
-        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.Pose, T_goal_obs)
+        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
         self._category_manipulation_action_server.set_succeeded(result)
 
@@ -330,7 +335,7 @@ class CategoryManipulationROSServer(object):
 
             self.taskRunner.callOnMain(vis_function)
 
-        print "\n\n-------SHOE_ON_TABLE Manipulation Action Finished----------\n\n"
+        print "\n\n-------MUG_ON_TABLE_3_KEYPOINTS Manipulation Action Finished----------\n\n"
 
     def shoe_on_table(self, goal):
         """
@@ -398,7 +403,7 @@ class CategoryManipulationROSServer(object):
         T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
 
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
-        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.Pose, T_goal_obs)
+        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
         self._category_manipulation_action_server.set_succeeded(result)
 
@@ -421,7 +426,7 @@ class CategoryManipulationROSServer(object):
                 :rtype:
                 """
 
-        print "\n\n-------Received SHOE_ON_TABLE Manipulation Action Request----------\n\n"
+        print "\n\n-------Received MUG_ON_TABLE_ROTATION_INVARIANT Manipulation Action Request----------\n\n"
 
         # only support MANKEY for now
 
@@ -484,7 +489,7 @@ class CategoryManipulationROSServer(object):
         T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
 
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
-        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.Pose, T_goal_obs)
+        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
         self._category_manipulation_action_server.set_succeeded(result)
 
@@ -498,7 +503,7 @@ class CategoryManipulationROSServer(object):
 
             self.taskRunner.callOnMain(vis_function)
 
-        print "\n\n-------SHOE_ON_TABLE Manipulation Action Finished----------\n\n"
+        print "\n\n-------MUG_ON_TABLE_ROTATION_INVARIANT Manipulation Action Finished----------\n\n"
 
     def mug_on_rack(self, goal):
         """
@@ -509,7 +514,7 @@ class CategoryManipulationROSServer(object):
                 :rtype:
                 """
 
-        print "\n\n-------Received Mug Rack Manipulation Action Request----------\n\n"
+        print "\n\n-------Received MUG_ON_RACK Manipulation Action Request----------\n\n"
 
         # if string is not empty
         keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
@@ -596,7 +601,7 @@ class CategoryManipulationROSServer(object):
 
             self.taskRunner.callOnMain(vis_function)
 
-        print "\n\n-------Mug Rack Manipulation Action Finished----------\n\n"
+        print "\n\n-------MUG_ON_RACK Manipulation Action Finished----------\n\n"
 
     def mug_on_shelf_3D(self, goal):
         pass
