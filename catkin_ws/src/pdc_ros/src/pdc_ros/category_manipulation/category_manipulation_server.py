@@ -1,6 +1,7 @@
+# system
 import os
 import numpy as np
-
+import functools
 from threading import Event
 
 # ros
@@ -9,6 +10,9 @@ import actionlib
 import ros_numpy
 import geometry_msgs
 
+
+# drake
+from pydrake.solvers.mathematicalprogram import SolutionResult
 
 # pdc_ros_msgs
 import pdc_ros_msgs.msg
@@ -24,11 +28,13 @@ from dense_correspondence_manipulation.category_manipulation.category_manipulati
 import dense_correspondence_manipulation.utils.utils as pdc_utils
 from dense_correspondence_manipulation.category_manipulation.grasping import CategoryGraspPlanner
 import dense_correspondence_manipulation.utils.director_utils as director_utils
+from dense_correspondence_manipulation.category_manipulation.mug_orientation_classifier import MugOrientationClassifier, MugOrientation
 
 import director.vtkNumpy as vnp
 import director.transformUtils as transformUtils
 import director.filterUtils as filterUtils
 from director.debugVis import DebugData
+import director.visualization as vis
 
 
 
@@ -36,11 +42,13 @@ IMAGE_NAME = "image_1"
 
 class CategoryManipulationROSServer(object):
 
-    def __init__(self, use_director=True, config=None, category_config=None, mug_rack_config=None):
+    def __init__(self, use_director=True, config=None, category_config=None, mug_rack_config=None,
+                 mug_shelf_config=None):
 
         self._use_director = use_director
         self._config = config
         self._mug_rack_config = mug_rack_config
+        self._mug_shelf_config = mug_shelf_config
 
 
         assert category_config is not None
@@ -87,10 +95,10 @@ class CategoryManipulationROSServer(object):
                                                                  pdc_ros_msgs.msg.CategoryManipulationAction, execute_cb=self._on_category_manipulation_action,
                                                                  auto_start=False)
 
-        self._mug_on_rack_action_server = actionlib.SimpleActionServer("MugOnRackManipulation",
-                                                                                 pdc_ros_msgs.msg.MugOnRackManipulationAction,
-                                                                                 execute_cb=self._on_mug_on_rack_manipulation_action,
-                                                                                 auto_start=False)
+        # self._mug_on_rack_action_server = actionlib.SimpleActionServer("MugOnRackManipulation",
+        #                                                                          pdc_ros_msgs.msg.MugOnRackManipulationAction,
+        #                                                                          execute_cb=self._on_mug_on_rack_manipulation_action,
+        #                                                                          auto_start=False)
 
     def run(self, spin=True):
         """
@@ -102,7 +110,6 @@ class CategoryManipulationROSServer(object):
         print "running node"
         self.setup_server()
         self._category_manipulation_action_server.start()
-        self._mug_on_rack_action_server.start()
         print "action server started"
 
         if spin:
@@ -206,6 +213,7 @@ class CategoryManipulationROSServer(object):
 
 
         result = pdc_ros_msgs.msg.MugOnRackManipulationResult()
+        result.category_manipulation_type = CategoryManipulationType.to_string(self._category_manipulation_type)
 
         T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
@@ -323,7 +331,11 @@ class CategoryManipulationROSServer(object):
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
-        self._category_manipulation_action_server.set_succeeded(result)
+        succeeded = self._solution['solver_code'] == SolutionResult.kSolutionFound
+        if succeeded:
+            self._category_manipulation_action_server.set_succeeded(result)
+        else:
+            self._category_manipulation_action_server.set_aborted(result)
 
         # launch the visualization
         if self._use_director:
@@ -405,7 +417,11 @@ class CategoryManipulationROSServer(object):
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
-        self._category_manipulation_action_server.set_succeeded(result)
+        succeeded = self._solution['solver_code'] == SolutionResult.kSolutionFound
+        if succeeded:
+            self._category_manipulation_action_server.set_succeeded(result)
+        else:
+            self._category_manipulation_action_server.set_aborted(result)
 
         # launch the visualization
         if self._use_director:
@@ -491,7 +507,11 @@ class CategoryManipulationROSServer(object):
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
-        self._category_manipulation_action_server.set_succeeded(result)
+        succeeded = self._solution['solver_code'] == SolutionResult.kSolutionFound
+        if succeeded:
+            self._category_manipulation_action_server.set_succeeded(result)
+        else:
+            self._category_manipulation_action_server.set_aborted(result)
 
         # launch the visualization
         if self._use_director:
@@ -568,7 +588,9 @@ class CategoryManipulationROSServer(object):
         print "waiting on event"
         self._threading_event.wait()
 
-        result = pdc_ros_msgs.msg.MugOnRackManipulationResult()
+        result = pdc_ros_msgs.msg.CategoryManipulationResult()
+        result.category_manipulation_type = CategoryManipulationType.to_string(self._category_manipulation_type)
+
 
         T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
@@ -583,12 +605,20 @@ class CategoryManipulationROSServer(object):
 
         T_world_grasp = transformUtils.getNumpyFromTransform(T_world_grasp_vtk)
         result.T_world_gripper_fingertip = ros_numpy.msgify(geometry_msgs.msg.Pose, T_world_grasp)
+        result.T_world_gripper_fingertip_valid = True
+        result.gripper_width = 0.05
+
         result.T_pre_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, self._solution["T_pre_goal_obs"])
+        result.T_pre_goal_obs_valid = True
 
         print("finished making message")
         print("result", result)
 
-        self._mug_on_rack_action_server.set_succeeded(result)
+        succeeded = self._solution['solver_code'] == SolutionResult.kSolutionFound
+        if succeeded:
+            self._category_manipulation_action_server.set_succeeded(result)
+        else:
+            self._category_manipulation_action_server.set_aborted(result)
 
         # launch the visualization
         if self._use_director:
@@ -604,7 +634,191 @@ class CategoryManipulationROSServer(object):
         print "\n\n-------MUG_ON_RACK Manipulation Action Finished----------\n\n"
 
     def mug_on_shelf_3D(self, goal):
-        pass
+        """
+
+        :param goal:
+        :type goal:
+        :return:
+        :rtype:
+        """
+        print "\n\n-------Received MUG_ON_SHELF_3D Manipulation Action Request----------\n\n"
+
+        # if string is not empty
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        if goal.output_dir:
+            output_dir = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.output_dir)
+        elif keypoint_detection_type == KeypointDetectionType.POSER:
+            output_dir = os.getenv("POSER_OUTPUT_DIR")
+        elif keypoint_detection_type == KeypointDetectionType.MANKEY:
+            output_dir = os.getenv("MANKEY_OUTPUT_DIR")
+
+        print "output_dir:", output_dir
+
+        # T_mug_rack
+        goal_pose_name = self._config["goal_pose_name"]
+        T_shelf_mug_vtk = director_utils.transformFromPose(self._category_config['poses'][goal_pose_name])
+
+        # T_world_shelf
+        shelf_config = self._mug_shelf_config
+        mug_rack_pose_name = self._config["shelf_pose_name"]
+        T_world_shelf_vtk = director_utils.transformFromPose(shelf_config['poses'][mug_rack_pose_name])
+        T_world_shelf = transformUtils.getNumpyFromTransform(T_world_shelf_vtk)
+
+        # get T_world_mug_model
+        T_world_mug_model_vtk = transformUtils.concatenateTransforms([T_shelf_mug_vtk, T_world_shelf_vtk])
+        T_world_mug_model = transformUtils.getNumpyFromTransform(T_world_mug_model_vtk)
+
+        self._category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
+
+
+
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
+        parser.load_response()
+        object_name = parser.get_unique_object_name()
+        image_name = IMAGE_NAME
+
+        d = self._category_manipulation_wrapper.construct_keypoint_containers_from_mankey_output_dir(output_dir, object_name, image_name,T_world_mug_model)
+
+        kp_container = d['kp_container']
+        goal_kp_container = d['goal_kp_container']
+        T_init_goal_obs = d['T_init_goal_obs']
+
+        self._solution = None
+        self.THREAD_SIGNAL = False
+        self._threading_event.clear()
+
+        mug_orientation = MugOrientationClassifier.classify_mug_orientation(kp_container)
+        print("mug_orientation: ", mug_orientation)
+        grasp_planner = CategoryGraspPlanner()
+
+        pointcloud_vtk = pdc_ros_director_utils.vtk_poly_data_from_RGBD_with_pose_list(goal.rgbd_with_pose_list)
+        gripper_width = 0.1 # full width
+        if mug_orientation == MugOrientation.HORIZONTAL:
+            print("MugOrientation == HORIZONTAL")
+            gripper_width = 0.1 # fully open
+            T_W_gripper_fingertip = grasp_planner.plan_mug_horizontal_grasp(kp_container)
+        elif mug_orientation == MugOrientation.UPRIGHT:
+            print("MugOrientation == VERTICAL")
+            T_W_gripper_fingertip, _ = grasp_planner.plan_mug_on_rack_grasp(pointcloud_vtk, kp_container,
+                                                                            visualize=False, task_runner=False)
+            gripper_width = 0.05
+        else:
+            raise ValueError("Can only handle HORIZONTAL or UPRIGHT orientations for now")
+
+
+
+        # extract information about plane
+        plane_normal = np.array(self._mug_shelf_config['plane']['normal'])
+        plane_normal = T_world_shelf_vtk.TransformVector(plane_normal)
+
+        point_on_plane = np.array(self._mug_shelf_config['plane']["point_on_plane"])
+        point_on_plane = T_world_shelf_vtk.TransformPoint(point_on_plane)
+        b = -np.dot(plane_normal, point_on_plane)
+
+
+        plane_equation = dict()
+        plane_equation['A'] = plane_normal
+        plane_equation['b'] = b
+
+
+        target_vector = np.array([0,0,1])
+        target_vector = np.array([0, 0, 1])
+        cm = CategoryManipulation(plane_equation=plane_equation)
+        mp = cm.construct_mug_on_table_rotation_invariant(kp_container, goal_kp_container, target_vector, T_init=T_init_goal_obs)
+
+
+        # add some additional costs if doing a horizontal grasp
+        # needed for kinematics reasons
+        if mug_orientation == MugOrientation.HORIZONTAL:
+            # add a cost
+            grasp_x_axis = np.array(T_W_gripper_fingertip.TransformVector([1,0,0]))
+            grasp_x_axis = grasp_x_axis.reshape((1, 3))
+            target_vector = np.array([0, 1, 0]) # could be relative to shelf pose
+            target_vector = target_vector.reshape((1, 3))
+            weight = 1.0
+            cost_fun = functools.partial(cm.vector_l2_cost, grasp_x_axis, target_vector, weight)
+            mp.AddCost(cost_fun, cm._xyz_rpy)
+
+        elif mug_orientation == MugOrientation.UPRIGHT:
+            # add a cost
+            grasp_z_axis = np.array(T_W_gripper_fingertip.TransformVector([0, 0, 1]))
+            grasp_z_axis = grasp_z_axis.reshape((1, 3))
+            target_vector = np.array([0, 1, 0])  # could be relative to shelf pose
+            target_vector = target_vector.reshape((1, 3))
+            weight = 1.0
+            cost_fun = functools.partial(cm.vector_l2_cost, grasp_z_axis, target_vector, weight)
+            mp.AddCost(cost_fun, cm._xyz_rpy)
+
+
+        def solve_function():
+            solver_code = mp.Solve()
+
+            print("solver code:", solver_code)
+            sol = cm.parse_solution(mp, T_init=cm.T_init)
+            sol['solver_code'] = solver_code
+            sol["category_manipulation_type"] = CategoryManipulationType.MUG_ON_SHELF_3D
+
+            self._solution = sol
+            # notify the main thread that solution has been found
+            self._threading_event.set()
+
+
+        self.taskRunner.callOnMain(solve_function)
+
+        print "waiting on event"
+        self._threading_event.wait()
+
+        result = pdc_ros_msgs.msg.CategoryManipulationResult()
+        result.mug_orientation = MugOrientation.to_string(mug_orientation)
+        result.category_manipulation_type = CategoryManipulationType.to_string(self._category_manipulation_type)
+
+        T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
+        T_goal_obs_vtk = transformUtils.getTransformFromNumpy(T_goal_obs)
+        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
+
+
+
+
+
+        T_W_gripepr_fingertip_numpy = transformUtils.getNumpyFromTransform(T_W_gripper_fingertip)
+        result.T_world_gripper_fingertip = ros_numpy.msgify(geometry_msgs.msg.Pose, T_W_gripepr_fingertip_numpy)
+        result.T_world_gripper_fingertip_valid = True
+        result.gripper_width = gripper_width
+
+        xyz = (0,0,0.1) # 10 cm
+        quat = (1,0,0,0)
+        T = transformUtils.transformFromPose(xyz, quat)
+        T_pre_goal_obs_vtk = transformUtils.concatenateTransforms([T_goal_obs_vtk, T])
+        T_pre_goal_obs = transformUtils.getNumpyFromTransform(T_pre_goal_obs_vtk)
+        self._solution['T_pre_goal_obs'] = T_pre_goal_obs
+        result.T_pre_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_pre_goal_obs)
+        result.T_pre_goal_obs_valid = True
+
+        # set finger tip width
+
+        print("finished making message")
+        print("result", result)
+
+        succeeded = self._solution['solver_code'] == SolutionResult.kSolutionFound
+        if succeeded:
+            self._category_manipulation_action_server.set_succeeded(result)
+        else:
+            self._category_manipulation_action_server.set_aborted(result)
+
+        # launch the visualization
+        if self._use_director:
+            def vis_function():
+                self._category_manip_vis._clear_visualization()
+                self._category_manip_vis.load_synthetic_background()
+                self._category_manip_vis.load_mug_platform(T_world_shelf_vtk)
+                self._category_manip_vis.visualize_result_mankey(self._solution, output_dir=output_dir, T_goal_model=T_world_mug_model_vtk)
+
+                vis.showFrame(T_W_gripper_fingertip, "gripper fingertip frame", parent=self._category_manip_vis._vis_container, scale=0.15)
+
+            self.taskRunner.callOnMain(vis_function)
+
+        print "\n\n-------MUG_ON_RACK Manipulation Action Finished----------\n\n"
 
     @staticmethod
     def make_shoe_default(**kwargs):

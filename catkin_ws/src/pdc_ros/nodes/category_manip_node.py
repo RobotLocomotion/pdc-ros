@@ -18,10 +18,12 @@ USE_DIRECTOR = True
 
 ####### MUGS
 CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_3_keypoints.yaml')
-# TYPE = "MUG_ON_TABLE"
-# TYPE = "MUG_ON_TABLE_ROTATION_INVARIANT"
 # TYPE = "MUG_ON_TABLE_3_KEYPOINTS"
-TYPE = "MUG_ON_RACK"
+# TYPE = "MUG_ON_RACK"
+# TYPE = "MUG_ON_TABLE_ROTATION_INVARIANT"
+TYPE = "MUG_ON_SHELF_3D"
+
+
 
 
 CATEGORY_CONFIG = pdc_utils.getDictFromYamlFilename(CATEGORY_CONFIG_FILE)
@@ -33,10 +35,16 @@ MUG_RACK_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(),
 MUG_RACK_CONFIG = pdc_utils.getDictFromYamlFilename(MUG_RACK_CONFIG_FILE)
 
 
+
+MUG_SHELF_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(),"config/category_manipulation/mug_platform.yaml")
+MUG_SHELF_CONFIG = pdc_utils.getDictFromYamlFilename(MUG_SHELF_CONFIG_FILE)
+
+
 if __name__ == "__main__":
     rospy.init_node("category_manip")
 
-    category_manip_server = CategoryManipulationROSServer(use_director=USE_DIRECTOR, config=SERVER_CONFIG, category_config=CATEGORY_CONFIG, mug_rack_config=MUG_RACK_CONFIG)
+    category_manip_server = CategoryManipulationROSServer(use_director=USE_DIRECTOR, config=SERVER_CONFIG, category_config=CATEGORY_CONFIG, mug_rack_config=MUG_RACK_CONFIG,
+                                                          mug_shelf_config=MUG_SHELF_CONFIG)
 
 
     globalsDict = globals()

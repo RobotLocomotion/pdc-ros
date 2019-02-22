@@ -1,3 +1,8 @@
+# ros
+import ros_numpy
+
+# pdc_ros
+import pdc_ros.utils.utils as pdc_ros_utils
 
 # director
 import director.vtkNumpy as vnp
@@ -17,8 +22,7 @@ def vtk_poly_data_from_RGBD_with_pose_list(rgbd_with_pose_list):
     for rgbd_with_pose in rgbd_with_pose_list:
 
         pointcloud_msg = rgbd_with_pose.point_cloud
-        T_world_pointcloud, _ = pdc_ros_utils.homogeneous_transform_from_transform_msg(
-            rgbd_with_pose.point_cloud_pose.transform)
+        T_world_pointcloud = ros_numpy.numpify(rgbd_with_pose.point_cloud_pose.transform)
         T_world_pointcloud_vtk = transformUtils.getTransformFromNumpy(T_world_pointcloud)
 
         pointcloud_numpy = pdc_ros_utils.numpy_from_pointcloud2_msg(pointcloud_msg)

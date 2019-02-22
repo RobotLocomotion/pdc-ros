@@ -11,7 +11,10 @@ import dense_correspondence_manipulation.utils.utils as pdc_utils
 # MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mankey.yaml')
 
 # mugs
-MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mugs.yaml')
+# MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mugs.yaml')
+
+# mugs flat old
+MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mugs_flat_old.yaml')
 
 CONFIG = pdc_utils.getDictFromYamlFilename(MANKEY_CONFIG_FILE)
 
