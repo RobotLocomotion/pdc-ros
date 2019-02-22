@@ -351,7 +351,7 @@ class CategoryManipulationROSServer(object):
 
     def shoe_on_table(self, goal):
         """
-        Dispatch to appropriate sub-routine
+        Run the shoe on table optimization
         :return:
         :rtype:
         """
@@ -413,9 +413,33 @@ class CategoryManipulationROSServer(object):
         self._threading_event.wait()
 
         T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
+        T_goal_obs_vtk = transformUtils.getTransformFromNumpy(T_goal_obs)
 
+
+        # encode goal pose
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
+
+        # approach pose
+        xyz = (0, 0, 0.1)  # 10 cm
+        quat = (1, 0, 0, 0)
+        T = transformUtils.transformFromPose(xyz, quat)
+        T_pre_goal_obs_vtk = transformUtils.concatenateTransforms([T_goal_obs_vtk, T])
+        T_pre_goal_obs = transformUtils.getNumpyFromTransform(T_pre_goal_obs_vtk)
+        self._solution['T_pre_goal_obs'] = T_pre_goal_obs
+        result.T_pre_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_pre_goal_obs)
+        result.T_pre_goal_obs_valid = True
+
+
+
+        # grasp pose
+        grasp_planner = CategoryGraspPlanner()
+        T_world_grasp_vtk = grasp_planner.plan_mug_on_rack_grasp(kp_container)
+
+        T_world_grasp = transformUtils.getNumpyFromTransform(T_world_grasp_vtk)
+        result.T_world_gripper_fingertip = ros_numpy.msgify(geometry_msgs.msg.Pose, T_world_grasp)
+        result.T_world_gripper_fingertip_valid = True
+        result.gripper_width = 0.05
 
         succeeded = self._solution['solver_code'] == SolutionResult.kSolutionFound
         if succeeded:
