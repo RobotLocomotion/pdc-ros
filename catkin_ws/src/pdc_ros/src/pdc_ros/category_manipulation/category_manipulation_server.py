@@ -43,12 +43,13 @@ IMAGE_NAME = "image_1"
 class CategoryManipulationROSServer(object):
 
     def __init__(self, use_director=True, config=None, category_config=None, mug_rack_config=None,
-                 mug_shelf_config=None):
+                 mug_shelf_config=None, shoe_rack_config=None):
 
         self._use_director = use_director
         self._config = config
         self._mug_rack_config = mug_rack_config
         self._mug_shelf_config = mug_shelf_config
+        self._shoe_rack_config = shoe_rack_config
 
 
         assert category_config is not None
@@ -135,6 +136,8 @@ class CategoryManipulationROSServer(object):
             self.mug_on_rack(goal)
         elif self._category_manipulation_type == CategoryManipulationType.MUG_ON_SHELF_3D:
             self.mug_on_shelf_3D(goal)
+        elif self._category_manipulation_type == CategoryManipulationType.SHOE_ON_RACK:
+            self.shoe_on_rack(goal)
         else:
             raise ValueError("unknown manipulation type")
 
@@ -329,6 +332,7 @@ class CategoryManipulationROSServer(object):
         T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
 
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
+        result.category_manipulation_type = CategoryManipulationType.to_string(self._category_manipulation_type)
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
         succeeded = self._solution['solver_code'] == SolutionResult.kSolutionFound
@@ -418,6 +422,7 @@ class CategoryManipulationROSServer(object):
 
         # encode goal pose
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
+        result.category_manipulation_type = CategoryManipulationType.to_string(self._category_manipulation_type)
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
         # approach pose
@@ -434,7 +439,7 @@ class CategoryManipulationROSServer(object):
 
         # grasp pose
         grasp_planner = CategoryGraspPlanner()
-        T_world_grasp_vtk = grasp_planner.plan_mug_on_rack_grasp(kp_container)
+        T_world_grasp_vtk = grasp_planner.plan_shoe_vertical_grasp(kp_container)
 
         T_world_grasp = transformUtils.getNumpyFromTransform(T_world_grasp_vtk)
         result.T_world_gripper_fingertip = ros_numpy.msgify(geometry_msgs.msg.Pose, T_world_grasp)
@@ -454,6 +459,148 @@ class CategoryManipulationROSServer(object):
                 self._category_manip_vis.load_synthetic_background()
                 self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir,
                                                           keypoint_detection_type=keypoint_detection_type)
+
+                vis.showFrame(T_world_grasp_vtk, "gripper fingertip", scale=0.15, parent=self._category_manip_vis._vis_container)
+
+            self.taskRunner.callOnMain(vis_function)
+
+        print "\n\n-------SHOE_ON_TABLE Manipulation Action Finished----------\n\n"
+
+    def shoe_on_rack(self, goal):
+        """
+        Run the shoe on table optimization
+        :return:
+        :rtype:
+        """
+
+        print "\n\n-------Received SHOE_ON_TABLE Manipulation Action Request----------\n\n"
+
+        # only support MANKEY for now
+
+        # if string is not empty
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        # if string is not empty
+        if goal.output_dir:
+            output_dir = os.path.join(pdc_ros_utils.get_sandbox_dir(), goal.output_dir)
+        else:
+            output_dir = os.getenv("MANKEY_OUTPUT_DIR")
+
+        print "output_dir:", output_dir
+
+
+        # T_rack_model
+        goal_pose_name = self._config["goal_pose_name"]
+        target_pose_dict = self._category_config['poses'][goal_pose_name]
+        T_rack_model_vtk = director_utils.transformFromPose(target_pose_dict)
+
+
+        # T_world_rack
+        rack_config = self._shoe_rack_config
+        rack_pose_name = self._config["rack_pose_name"]
+        T_world_rack_vtk = director_utils.transformFromPose(rack_config["poses"][rack_pose_name])
+
+        # T_goal_model
+        T_goal_model_vtk = transformUtils.concatenateTransforms([T_rack_model_vtk, T_world_rack_vtk])
+        T_goal_model = transformUtils.getNumpyFromTransform(T_goal_model_vtk)
+
+
+        self._category_manipulation_wrapper = CategoryManipulationWrapper(self._category_config)
+
+        self._solution = None
+        self.THREAD_SIGNAL = False
+        self._threading_event.clear()
+
+        keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
+        parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
+        parser.load_response()
+        object_name = parser.get_unique_object_name()
+        image_name = IMAGE_NAME
+
+        d = self._category_manipulation_wrapper.construct_keypoint_containers_from_mankey_output_dir(output_dir, object_name, image_name, T_goal_model)
+
+        kp_container = d['kp_container']
+        goal_kp_container = d['goal_kp_container']
+        T_init_goal_obs = d['T_init_goal_obs']
+
+        # extract information about plane
+        plane_normal = np.array(rack_config['plane']['normal'])
+        plane_normal = T_world_rack_vtk.TransformVector(plane_normal)
+
+        point_on_plane = np.array(rack_config['plane']["point_on_plane"])
+        point_on_plane = T_world_rack_vtk.TransformPoint(point_on_plane)
+        b = -np.dot(plane_normal, point_on_plane)
+
+        plane_equation = dict()
+        plane_equation['A'] = plane_normal
+        plane_equation['b'] = b
+
+        cm = CategoryManipulation(plane_equation=plane_equation)
+        mp = cm.construct_keypoint_optimization(kp_container, goal_kp_container, T_init=T_init_goal_obs)
+
+        def solve_function():
+
+
+            solver_code = mp.Solve()
+            print("solver code:", solver_code)
+            sol = cm.parse_solution(mp, T_init=cm.T_init)
+            sol['solver_code'] = solver_code
+            sol["category_manipulation_type"] = CategoryManipulationType.SHOE_ON_TABLE
+
+            self._solution = sol
+            self._threading_event.set()
+
+
+        self.taskRunner.callOnMain(solve_function)
+
+        print "waiting on event"
+        self._threading_event.wait()
+
+        T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
+        T_goal_obs_vtk = transformUtils.getTransformFromNumpy(T_goal_obs)
+
+
+        # encode goal pose
+        result = pdc_ros_msgs.msg.CategoryManipulationResult()
+        result.category_manipulation_type = CategoryManipulationType.to_string(self._category_manipulation_type)
+        result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
+
+        # approach pose
+        xyz = (0, 0, 0.05)  # 5 cm
+        quat = (1, 0, 0, 0)
+        T = transformUtils.transformFromPose(xyz, quat)
+        T_pre_goal_obs_vtk = transformUtils.concatenateTransforms([T_goal_obs_vtk, T])
+        T_pre_goal_obs = transformUtils.getNumpyFromTransform(T_pre_goal_obs_vtk)
+        self._solution['T_pre_goal_obs'] = T_pre_goal_obs
+        result.T_pre_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_pre_goal_obs)
+        result.T_pre_goal_obs_valid = True
+
+
+
+        # grasp pose
+        grasp_planner = CategoryGraspPlanner()
+        T_world_grasp_vtk = grasp_planner.plan_shoe_vertical_grasp(kp_container)
+
+        T_world_grasp = transformUtils.getNumpyFromTransform(T_world_grasp_vtk)
+        result.T_world_gripper_fingertip = ros_numpy.msgify(geometry_msgs.msg.Pose, T_world_grasp)
+        result.T_world_gripper_fingertip_valid = True
+        result.gripper_width = 0.05
+
+        succeeded = self._solution['solver_code'] == SolutionResult.kSolutionFound
+        if succeeded:
+            self._category_manipulation_action_server.set_succeeded(result)
+        else:
+            self._category_manipulation_action_server.set_aborted(result)
+
+        # launch the visualization
+        if self._use_director:
+            def vis_function():
+                self._category_manip_vis._clear_visualization()
+                self._category_manip_vis.load_synthetic_background()
+                self._category_manip_vis.load_shoe_rack()
+                self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir,
+                                                          keypoint_detection_type=keypoint_detection_type)
+
+                vis.showFrame(T_world_grasp_vtk, "gripper fingertip", scale=0.15, parent=self._category_manip_vis._vis_container)
 
             self.taskRunner.callOnMain(vis_function)
 
@@ -529,6 +676,7 @@ class CategoryManipulationROSServer(object):
         T_goal_obs = self._solution['T_goal_obs']  # 4x4 homogeneous transform
 
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
+        result.category_manipulation_type = CategoryManipulationType.to_string(self._category_manipulation_type)
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
         succeeded = self._solution['solver_code'] == SolutionResult.kSolutionFound

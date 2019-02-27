@@ -27,13 +27,6 @@ dc_source_dir = pdc_utils.getDenseCorrespondenceSourceDir()
 from dense_correspondence_manipulation.mankey_utils.mankey_client import ManKeyClient
 
 
-# # shoes
-# MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mankey.yaml')
-
-
-# mugs
-MANKEY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/mankey/mugs.yaml')
-
 class ManKeyROSServer(object):
 
     def __init__(self, config=None):

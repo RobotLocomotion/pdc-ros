@@ -12,16 +12,17 @@ USE_DIRECTOR = True
 
 
 ###### SHOES
-# CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/shoes_mankey.yaml')
+CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/shoes_mankey.yaml')
 # TYPE = "SHOE_ON_TABLE"
+TYPE = "SHOE_ON_RACK"
 
 
 ####### MUGS
-CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_3_keypoints.yaml')
-# TYPE = "MUG_ON_TABLE_3_KEYPOINTS"
+# CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_3_keypoints.yaml')
+# # # TYPE = "MUG_ON_TABLE_3_KEYPOINTS"
 # TYPE = "MUG_ON_RACK"
 # TYPE = "MUG_ON_TABLE_ROTATION_INVARIANT"
-TYPE = "MUG_ON_SHELF_3D"
+# TYPE = "MUG_ON_SHELF_3D"
 
 
 
@@ -40,11 +41,15 @@ MUG_SHELF_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir()
 MUG_SHELF_CONFIG = pdc_utils.getDictFromYamlFilename(MUG_SHELF_CONFIG_FILE)
 
 
+SHOE_RACK_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(),"config/category_manipulation/shoe_rack.yaml")
+SHOE_RACK_CONFIG = pdc_utils.getDictFromYamlFilename(SHOE_RACK_CONFIG_FILE)
+
 if __name__ == "__main__":
     rospy.init_node("category_manip")
 
     category_manip_server = CategoryManipulationROSServer(use_director=USE_DIRECTOR, config=SERVER_CONFIG, category_config=CATEGORY_CONFIG, mug_rack_config=MUG_RACK_CONFIG,
-                                                          mug_shelf_config=MUG_SHELF_CONFIG)
+                                                          mug_shelf_config=MUG_SHELF_CONFIG,
+                                                          shoe_rack_config=SHOE_RACK_CONFIG)
 
 
     globalsDict = globals()
