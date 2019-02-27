@@ -1,5 +1,6 @@
 # system
 import os
+import time
 
 # ros
 import rospy
@@ -47,6 +48,7 @@ class ManKeyROSServer(object):
 
     def _on_keypoint_detection_action(self, goal):
         rospy.loginfo("\n\n-------Received KeypointDetectionAction request-------")
+        start_time = time.time()
 
         image_data_list = []
         for msg in goal.rgbd_with_pose_list:
@@ -68,7 +70,9 @@ class ManKeyROSServer(object):
         result.output_dir = relpath_to_sandbox_dir
 
         self._action_server.set_succeeded(result)
-        rospy.loginfo("------Completed KeypointDetectionAction request-------\n\n")
+
+        elapsed = time.time() - start_time
+        rospy.loginfo("------Completed KeypointDetectionAction request in %.2f seconds-------\n\n" %(elapsed))
 
     def run(self):
         """
