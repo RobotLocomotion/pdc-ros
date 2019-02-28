@@ -597,8 +597,10 @@ class CategoryManipulationROSServer(object):
                 self._category_manip_vis._clear_visualization()
                 self._category_manip_vis.load_synthetic_background()
                 self._category_manip_vis.load_shoe_rack()
-                self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir,
-                                                          keypoint_detection_type=keypoint_detection_type)
+
+                self._category_manip_vis.visualize_result_mankey(self._solution, output_dir=output_dir,
+                                                                 T_goal_model=T_goal_model_vtk,
+                                                                 object_name=object_name, image_name=image_name)
 
                 vis.showFrame(T_world_grasp_vtk, "gripper fingertip", scale=0.15, parent=self._category_manip_vis._vis_container)
 
