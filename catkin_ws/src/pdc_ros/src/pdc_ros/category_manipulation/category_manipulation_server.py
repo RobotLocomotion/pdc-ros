@@ -798,8 +798,10 @@ class CategoryManipulationROSServer(object):
                 self._category_manip_vis._clear_visualization()
                 self._category_manip_vis.load_synthetic_background()
                 self._category_manip_vis.load_mug_rack_and_side_table()
-                self._category_manip_vis.visualize_result(self._solution, output_dir=output_dir,
-                                                          keypoint_detection_type=keypoint_detection_type)
+
+                self._category_manip_vis.visualize_result_mankey(self._solution, output_dir=output_dir,
+                                                                 T_goal_model=T_world_mug_model_vtk,
+                                                                 object_name=object_name, image_name=image_name)
 
             self.taskRunner.callOnMain(vis_function)
 
@@ -847,8 +849,10 @@ class CategoryManipulationROSServer(object):
         keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
         parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
         parser.load_response()
-        object_name = parser.get_unique_object_name()
-        image_name = IMAGE_NAME
+
+        list_of_objects = parser.get_object_names()
+        object_name = list_of_objects[0]
+        image_name = parser.get_image_names_for_object(object_name)[0]
 
         d = self._category_manipulation_wrapper.construct_keypoint_containers_from_mankey_output_dir(output_dir, object_name, image_name,T_world_mug_model)
 
@@ -984,7 +988,7 @@ class CategoryManipulationROSServer(object):
                 self._category_manip_vis._clear_visualization()
                 self._category_manip_vis.load_synthetic_background()
                 self._category_manip_vis.load_mug_platform(T_world_shelf_vtk)
-                self._category_manip_vis.visualize_result_mankey(self._solution, output_dir=output_dir, T_goal_model=T_world_mug_model_vtk)
+                self._category_manip_vis.visualize_result_mankey(self._solution, output_dir=output_dir, T_goal_model=T_world_mug_model_vtk, object_name=object_name, image_name=image_name)
 
                 vis.showFrame(T_W_gripper_fingertip, "gripper fingertip frame", parent=self._category_manip_vis._vis_container, scale=0.15)
 
