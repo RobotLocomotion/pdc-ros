@@ -573,7 +573,7 @@ class CategoryManipulationROSServer(object):
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
 
         # approach pose
-        xyz = (0, 0, 0.05)  # 5 cm
+        xyz = (0, 0, 0.15)  # 5 cm
         quat = (1, 0, 0, 0)
         T = transformUtils.transformFromPose(xyz, quat)
         T_pre_goal_obs_vtk = transformUtils.concatenateTransforms([T_goal_obs_vtk, T])
