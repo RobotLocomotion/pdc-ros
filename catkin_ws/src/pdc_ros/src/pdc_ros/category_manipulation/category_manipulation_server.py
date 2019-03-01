@@ -501,6 +501,14 @@ class CategoryManipulationROSServer(object):
 
         # T_goal_model
         T_goal_model_vtk = transformUtils.concatenateTransforms([T_rack_model_vtk, T_world_rack_vtk])
+
+        if goal.apply_T_adjust:
+            print("applying T_adjust")
+            T_adjust = ros_numpy.numpify(goal.T_adjust)
+            T_adjust_vtk = transformUtils.getTransformFromNumpy(T_adjust)
+            T_goal_model_vtk = transformUtils.concatenateTransforms([T_goal_model_vtk, T_adjust_vtk])
+
+
         T_goal_model = transformUtils.getNumpyFromTransform(T_goal_model_vtk)
 
 
