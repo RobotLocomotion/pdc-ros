@@ -29,6 +29,7 @@ import dense_correspondence_manipulation.utils.utils as pdc_utils
 from dense_correspondence_manipulation.category_manipulation.grasping import CategoryGraspPlanner
 import dense_correspondence_manipulation.utils.director_utils as director_utils
 from dense_correspondence_manipulation.category_manipulation.mug_orientation_classifier import MugOrientationClassifier, MugOrientation
+from dense_correspondence_manipulation.category_manipulation.object_locator import ObjectLocator
 
 import director.vtkNumpy as vnp
 import director.transformUtils as transformUtils
@@ -39,6 +40,9 @@ import director.visualization as vis
 
 
 IMAGE_NAME = "image_1"
+
+TOP_CENTER_TARGET_LOCATION = np.array([0.6650140662059443, 0.0642841347255465, 0.020806108674832013])
+
 
 class CategoryManipulationROSServer(object):
 
@@ -74,6 +78,31 @@ class CategoryManipulationROSServer(object):
         print("category manipulation type %s" %self._config["manipulation_type"])
 
 
+    @staticmethod
+    def result_file(output_dir):
+        return os.path.join(output_dir, "category_manipulation_result.yaml")
+
+
+    def save_configs(self, output_dir):
+        if self._config is not None:
+            filename = os.path.join(output_dir, "category_manipulation.yaml")
+            pdc_utils.saveToYaml(self._config, filename)
+
+        if self._category_config is not None:
+            filename = os.path.join(output_dir, "category_config.yaml")
+            pdc_utils.saveToYaml(self._category_config, filename)
+
+        if self._mug_rack_config is not None:
+            filename = os.path.join(output_dir, "mug_rack_config.yaml")
+            pdc_utils.saveToYaml(self._mug_rack_config, filename)
+
+        if self._mug_shelf_config is not None:
+            filename = os.path.join(output_dir, "mug_shelf_config.yaml")
+            pdc_utils.saveToYaml(self._mug_shelf_config, filename)
+
+        if self._shoe_rack_config is not None:
+            filename = os.path.join(output_dir, "shoe_rack_config.yaml")
+            pdc_utils.saveToYaml(self._shoe_rack_config, filename)
 
     def setup_server(self):
         """
@@ -567,10 +596,14 @@ class CategoryManipulationROSServer(object):
         T_goal_obs_vtk = transformUtils.getTransformFromNumpy(T_goal_obs)
 
 
+
+
         # encode goal pose
         result = pdc_ros_msgs.msg.CategoryManipulationResult()
         result.category_manipulation_type = CategoryManipulationType.to_string(self._category_manipulation_type)
         result.T_goal_obs = ros_numpy.msgify(geometry_msgs.msg.Pose, T_goal_obs)
+
+
 
         # approach pose
         xyz = (0, 0, 0.15)  # 5 cm
@@ -585,8 +618,9 @@ class CategoryManipulationROSServer(object):
 
 
         # grasp pose
+        fused_cloud = pdc_ros_director_utils.vtk_poly_data_from_RGBD_with_pose_list(goal.rgbd_with_pose_list)
         grasp_planner = CategoryGraspPlanner()
-        T_world_grasp_vtk = grasp_planner.plan_shoe_vertical_grasp(kp_container)
+        T_world_grasp_vtk = grasp_planner.plan_shoe_vertical_grasp(kp_container, poly_data=fused_cloud, taskRunner=self.taskRunner)
 
         T_world_grasp = transformUtils.getNumpyFromTransform(T_world_grasp_vtk)
         result.T_world_gripper_fingertip = ros_numpy.msgify(geometry_msgs.msg.Pose, T_world_grasp)
@@ -613,6 +647,30 @@ class CategoryManipulationROSServer(object):
                 vis.showFrame(T_world_grasp_vtk, "gripper fingertip", scale=0.15, parent=self._category_manip_vis._vis_container)
 
             self.taskRunner.callOnMain(vis_function)
+
+
+        # save the results to a file
+        # additional things we want to save out
+
+        yaml_dict = dict()
+
+        yaml_dict["type"] = CategoryManipulationType.to_string(self._category_manipulation_type)
+        yaml_dict["solve_succeeded"] = succeeded
+
+        yaml_dict["T_goal_obs"] = pdc_utils.dict_from_transform(T_goal_obs)
+        yaml_dict["T_pre_goal_obs"] = pdc_utils.dict_from_transform(T_pre_goal_obs)
+        yaml_dict["T_world_grasp"] = pdc_utils.dict_from_transform(T_world_grasp)
+        yaml_dict["gripper_width"] = result.gripper_width
+
+        T_world_rack = transformUtils.getNumpyFromTransform(T_world_rack_vtk)
+        yaml_dict["T_world_rack"] = pdc_utils.dict_from_transform(T_world_rack)
+
+
+
+        filename = CategoryManipulationROSServer.result_file(output_dir)
+        pdc_utils.saveToYaml(yaml_dict, filename)
+
+        self.save_configs(output_dir)
 
         print "\n\n-------SHOE_ON_TABLE Manipulation Action Finished----------\n\n"
 
@@ -752,8 +810,14 @@ class CategoryManipulationROSServer(object):
         keypoint_detection_type = KeypointDetectionType.from_string(goal.keypoint_detection_type)
         parser = keypoint_utils.make_keypoint_result_parser(output_dir, keypoint_detection_type)
         parser.load_response()
-        object_name = parser.get_unique_object_name()
-        image_name = IMAGE_NAME
+
+        list_of_objects = parser.get_object_names()
+        image_name = parser.get_image_names_for_object(list_of_objects[0])[0]
+
+        object_locator = ObjectLocator(parser, self._category_config)
+        (object_name, distance_to_target) = object_locator.locate_closest_object(image_name, "top_center",
+                                                                                 TOP_CENTER_TARGET_LOCATION)
+
 
         self._solution = None
 
@@ -861,8 +925,12 @@ class CategoryManipulationROSServer(object):
         parser.load_response()
 
         list_of_objects = parser.get_object_names()
-        object_name = list_of_objects[0]
-        image_name = parser.get_image_names_for_object(object_name)[0]
+        image_name = parser.get_image_names_for_object(list_of_objects[0])[0]
+
+        object_locator = ObjectLocator(parser, self._category_config)
+        (object_name, distance_to_target) = object_locator.locate_closest_object(image_name, "top_center", TOP_CENTER_TARGET_LOCATION)
+
+
 
         d = self._category_manipulation_wrapper.construct_keypoint_containers_from_mankey_output_dir(output_dir, object_name, image_name,T_world_mug_model)
 

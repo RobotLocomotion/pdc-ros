@@ -8,20 +8,21 @@ import rospy
 from pdc_ros.category_manipulation.category_manipulation_server import CategoryManipulationROSServer
 import dense_correspondence_manipulation.utils.utils as pdc_utils
 
+from pdc_ros.utils.director_ros_visualizer import DirectorROSVisualizer
+
 USE_DIRECTOR = True
 
 
 ###### SHOES
-CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/shoes_mankey.yaml')
-# TYPE = "SHOE_ON_TABLE"
-TYPE = "SHOE_ON_RACK"
+# CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/shoes_mankey.yaml')
+# TYPE = "SHOE_ON_RACK"
+
 
 
 ####### MUGS
-# CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_3_keypoints.yaml')
-# # # TYPE = "MUG_ON_TABLE_3_KEYPOINTS"
-# TYPE = "MUG_ON_RACK"
-# TYPE = "MUG_ON_TABLE_ROTATION_INVARIANT"
+CATEGORY_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(), 'config/category_manipulation/mug_3_keypoints.yaml')
+
+TYPE = "MUG_ON_RACK"
 # TYPE = "MUG_ON_SHELF_3D"
 
 
@@ -43,6 +44,9 @@ MUG_SHELF_CONFIG = pdc_utils.getDictFromYamlFilename(MUG_SHELF_CONFIG_FILE)
 
 SHOE_RACK_CONFIG_FILE = os.path.join(pdc_utils.getDenseCorrespondenceSourceDir(),"config/category_manipulation/shoe_rack.yaml")
 SHOE_RACK_CONFIG = pdc_utils.getDictFromYamlFilename(SHOE_RACK_CONFIG_FILE)
+
+
+USE_ROS_VISUALIZER = False
 
 if __name__ == "__main__":
     rospy.init_node("category_manip")
@@ -76,6 +80,17 @@ if __name__ == "__main__":
 
         globalsDict['cms'] = category_manip_server
         globalsDict['cmv'] = category_manip_server._category_manip_vis
+
+        ros_visualizer = DirectorROSVisualizer()
+        globalsDict["ros_visualizer"] = ros_visualizer
+
+
+        if USE_ROS_VISUALIZER:
+            ros_visualizer = DirectorROSVisualizer()
+            topic = "/camera_carmine_1/depth/points"
+            ros_visualizer.add_subscriber(topic, name="Carmine", visualize=True)
+            globalsDict['ros_visualizer'] = ros_visualizer
+            ros_visualizer.start()
 
 
         category_manip_server.taskRunner.callOnThread(category_manip_server.run)

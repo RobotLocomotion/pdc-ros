@@ -1,12 +1,17 @@
 # system
 import numpy as np
+import os
 from PIL import Image as PILImage
+import cv2
+
 
 # ROS
 from cv_bridge import CvBridge, CvBridgeError
+import ros_numpy
 
 # pdc_ros
 import pdc_ros.utils.utils as pdc_ros_utils
+import dense_correspondence_manipulation.utils.utils as pdc_utils
 
 
 """
@@ -74,7 +79,73 @@ def parse_RGBD_with_pose(msg):
     d['rgb'] = rgb_img_msg_to_PIL(msg.rgb_image)
     d['depth'] = depth_img_msg_to_PIL(msg.depth_image)
     d['camera_to_world'] = pdc_ros_utils.homogeneous_transform_from_transform_msg(msg.camera_pose.transform)[1]
+    d["pointcloud_to_world"] = pdc_ros_utils.homogeneous_transform_from_transform_msg(msg.point_cloud_pose.transform)[1]
 
     return d
+
+
+def numpy_from_pointcloud2_msg(msg):
+    """
+
+    :param msg: sensor_msgs/PointCloud2
+    :type msg:
+    :return:
+    :rtype:
+    """
+
+    pc = ros_numpy.numpify(msg)
+    num_points = msg.width * msg.height
+
+    points = np.zeros((num_points, 3))
+    points[:, 0] = pc['x'].flatten()
+    points[:, 1] = pc['y'].flatten()
+    points[:, 2] = pc['z'].flatten()
+
+    return points
+
+def save_RGBD_with_pose(msg, output_dir):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    image_data = parse_RGBD_with_pose(msg)
+
+    # save images to disk
+
+    rgb_img_filename = "rgb.png"
+    depth_img_filename = "depth.png"
+    pointcloud_filename = "pointcloud.npy"
+
+
+    # save rgb image
+
+    data = dict()
+    data['rgb_filename'] = rgb_img_filename
+    data["depth_filename"] = depth_img_filename
+    data["pointcloud_filename"] = pointcloud_filename
+    data["camera_to_world"] = image_data["camera_to_world"]
+    data["pointcloud_to_world"] = image_data["pointcloud_to_world"]
+
+    # convert to absolute paths for savings
+    rgb_img_filename = os.path.join(output_dir, rgb_img_filename)
+    depth_img_filename = os.path.join(output_dir, depth_img_filename)
+    pointcloud_filename = os.path.join(output_dir, pointcloud_filename)
+
+
+    # save RGB
+    image_data["rgb"].save(rgb_img_filename)
+
+    # save depth
+    cv2.imwrite(depth_img_filename, image_data['depth'].astype(np.uint16))
+
+    # save pointcloud
+    pointcloud = numpy_from_pointcloud2_msg(msg.point_cloud)
+    np.save(pointcloud_filename, pointcloud)
+
+
+    pdc_utils.saveToYaml(data, os.path.join(output_dir, "data.yaml"))
+
+
+
+
 
 

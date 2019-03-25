@@ -46,6 +46,10 @@ class ManKeyROSServer(object):
                                                            execute_cb=self._on_keypoint_detection_action,
                                                            auto_start=False)
 
+        self._save_rgbd_msg_server = actionlib.SimpleActionServer("SaveRGBD", pdc_ros_msgs.msg.KeypointDetectionAction,
+                                                           execute_cb=self._on_save_rgbd_msg,
+                                                           auto_start=False)
+
     def _on_keypoint_detection_action(self, goal):
         rospy.loginfo("\n\n-------Received KeypointDetectionAction request-------")
         start_time = time.time()
@@ -54,7 +58,15 @@ class ManKeyROSServer(object):
         for msg in goal.rgbd_with_pose_list:
             image_data_list.append(perception_utils.parse_RGBD_with_pose(msg))
 
-        num_detected_objects, output_dir = self._client.run_on_images(image_data_list)
+
+        if goal.output_dir == "":
+            output_dir = None
+        else:
+            output_dir = os.path.join(pdc_utils.get_sandbox_dir(), goal.output_dir)
+
+        rospy.loginfo("output_dir %s" %(output_dir))
+
+        num_detected_objects, output_dir = self._client.run_on_images(image_data_list, output_dir=output_dir)
 
         if num_detected_objects == 0:
             msg = "Mask RCNN detected 0 objects, aborting"
@@ -74,11 +86,34 @@ class ManKeyROSServer(object):
         elapsed = time.time() - start_time
         rospy.loginfo("------Completed KeypointDetectionAction request in %.2f seconds-------\n\n" %(elapsed))
 
+    def _on_save_rgbd_msg(self, goal):
+        """
+        Saves RGBD to file
+        :param goal:
+        :type goal:
+        :return:
+        :rtype:
+        """
+        rospy.loginfo("\n\n-------Received SaveRGBDAction request-------")
+
+        output_dir = os.path.join(pdc_utils.get_sandbox_dir(), goal.output_dir)
+
+        assert len(goal.rgbd_with_pose_list) == 1
+        msg = goal.rgbd_with_pose_list[0]
+        rospy.loginfo("output_dir %s" %(output_dir))
+        perception_utils.save_RGBD_with_pose(msg, output_dir)
+
+        result = pdc_ros_msgs.msg.KeypointDetectionResult()
+        self._save_rgbd_msg_server.set_succeeded(result)
+
+        rospy.loginfo("\n\n-------Completed SaveRGBDAction request-------")
+
     def run(self):
         """
         Start the node
         """
         self._action_server.start()
+        self._save_rgbd_msg_server.start()
 
     @staticmethod
     def make_default():
