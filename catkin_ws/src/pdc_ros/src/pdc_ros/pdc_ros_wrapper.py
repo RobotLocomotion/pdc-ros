@@ -6,7 +6,8 @@ import numpy as np
 import rospy
 import actionlib
 
-from utils import *
+import pdc_ros.utils.utils as pdc_ros_utils
+from pdc_ros.utils.utils import *
 
 # pdc_ros_msgs
 import pdc_ros_msgs.msg
@@ -271,7 +272,7 @@ class PDCRos(object):
         depth = depth_mm/1000.0
 
         # 4 x 4 numpy array
-        camera_to_world = PDCRos.homogeneous_transform_from_pose_stamped_msg(camera_pose.transform)
+        camera_to_world, _ = pdc_ros_utils.homogeneous_transform_from_transform_msg(camera_pose.transform)
 
         pos = DCE.compute_3d_position(best_match_uv, depth, camera_intrinsics_matrix, camera_to_world)
         return pos
@@ -294,7 +295,7 @@ class PDCRos(object):
         # descriptor_target = self.get_descriptor_target_from_yaml()
         descriptor_target = np.array(self.pick_point_config["descriptor"])
 
-        best_match_uv, best_match_diff, norm_diffs = self.dcn.find_best_match_for_descriptor(res,descriptor_target)
+        best_match_uv, best_match_diff, norm_diffs = self.dcn.find_best_match_for_descriptor(descriptor_target, res)
 
         print "best match diff: ", best_match_diff
 
@@ -370,28 +371,3 @@ class PDCRos(object):
         cy = msg.K[5]
 
         return np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
-
-    @staticmethod
-    def homogeneous_transform_from_pose_stamped_msg(msg):
-        """
-        Computes 4 x 4 homogeneous transform matrix from a geometry_msgs/Transform
-        :param msg:
-        :return:
-        """
-
-        d = dict()
-        pos = msg.translation
-        d['translation'] = dict()
-        d['translation']['x'] = pos.x
-        d['translation']['y'] = pos.y
-        d['translation']['z'] = pos.z
-
-        quat = msg.rotation
-        d['quaternion'] = dict()
-        d['quaternion']['w'] = quat.w
-        d['quaternion']['x'] = quat.x
-        d['quaternion']['y'] = quat.y
-        d['quaternion']['z'] = quat.z
-
-
-        return pdc_utils.homogenous_transform_from_dict(d)

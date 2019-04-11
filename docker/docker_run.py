@@ -40,21 +40,41 @@ if __name__=="__main__":
         cmd += " --name %(container_name)s " % {'container_name': args.container}
 
     cmd += " -e DISPLAY -e QT_X11_NO_MITSHM=1 -v /tmp/.X11-unix:/tmp/.X11-unix:rw "     # enable graphics 
+
+
+    # cmd += " -v %(source_dir)s:%(home_directory)s/code "  \
+    #     % {'source_dir': pdc_source_dir, 'home_directory': home_directory}              # mount pdc source
+
+    # mount source code into ~/code
     cmd += " -v %(source_dir)s:%(home_directory)s/code "  \
-        % {'source_dir': pdc_source_dir, 'home_directory': home_directory}              # mount pdc source
-    cmd += " -v %(source_dir)s:%(home_directory)s "  \
-        % {'source_dir': source_dir, 'home_directory': home_directory}              # mount rest of source
+        % {'source_dir': source_dir, 'home_directory': home_directory}
+
     cmd += " -v ~/.ssh:%(home_directory)s/.ssh " % {'home_directory': home_directory}   # mount ssh keys
     #cmd += " -v /media:/media " #mount media
     cmd += " -v ~/.torch:%(home_directory)s/.torch " % {'home_directory': home_directory}  # mount torch folder 
                                                         # where pytorch standard models (i.e. resnet34) are stored
 
+
+
     cmd += " --user %s " % user_name                                                    # login as current user
+
+    # cmd += " --env-file ./main.env"
 
     # uncomment below to mount your data volume
     config_yaml = yaml.load(file(config_file))
     host_name = socket.gethostname()
-    cmd += " -v %s:%s/data_volume " %(config_yaml[host_name][user_name]['path_to_data_directory'], dense_correspondence_source_dir)
+
+    # mounts data volume to ~/data inside the docker container
+    cmd += " -v %s:%s/data" %(config_yaml[host_name][user_name]['path_to_data_directory'], home_directory)
+
+    # mount sandbox to ~/sandbox
+    if "path_to_sandbox_directory" in config_yaml[host_name][user_name]:
+        path_to_sandbox_directory = config_yaml[host_name][user_name]["path_to_sandbox_directory"]
+    else:
+        path_to_sandbox_directory = os.path.join(home_directory, 'sandbox')
+
+
+    cmd += " -v %s:%s/sandbox" % (path_to_sandbox_directory, home_directory)
 
     # expose UDP ports
     cmd += " -p 8888:8888 "

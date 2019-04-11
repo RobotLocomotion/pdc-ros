@@ -1,0 +1,8 @@
+network:
+  path_to_network_params: "trained_models/shoes_consistent/shoes_consistent_M_background_0.500_3_15K_training/015001.pth"
+
+segmentation:
+  model_folder: "mask_rcnn_models/mask_rcnn_multi_shoe"
+  class_id: 1 # this is the id that corresponds to shoes in the output of MaskRCNN
+
+template: "templates/shoes/shoes_consistent_M_background_0.500_3_15K_training_descriptor_template.pcd"
